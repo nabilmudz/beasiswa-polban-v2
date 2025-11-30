@@ -1,0 +1,20 @@
+.icon {
+    background: white; /* Warna default latar belakang */
+    transition: 0.3s ease; /* Transisi halus untuk latar belakang default */
+}
+
+/* Gaya untuk ikon yang aktif */
+.icon.active {
+    background: linear-gradient(
+        to top left,
+        #fbbf24,
+        #f97316
+    ); /* Gradasi dari kuning ke oranye */
+}
+
+/* Tambahkan ini ke file CSS Anda */
+.active {
+    border: 2px;
+    background-color: white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}

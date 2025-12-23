@@ -99,6 +99,30 @@
                     <div class="w-24 h-1 bg-gradient-to-r from-blue-600 to-indigo-600 mx-auto rounded-full"></div>
                 </div>
 
+                <!-- YouTube Video Section -->
+                @if($beasiswa->youtube_url)
+                <div class="mb-12">
+                    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+                        <div class="px-8 py-6 border-b bg-gradient-to-r from-red-50 to-pink-50">
+                            <h3 class="text-2xl font-bold text-gray-900">Video Penjelasan</h3>
+                            <p class="text-gray-600 mt-1">Tonton video untuk informasi lebih lanjut tentang KIP-Kuliah</p>
+                        </div>
+                        <div class="p-8">
+                            <div class="relative w-full" style="padding-bottom: 56.25%;">
+                                <iframe 
+                                    class="absolute top-0 left-0 w-full h-full rounded-xl shadow-lg"
+                                    src="{{ str_replace(['watch?v=', 'youtu.be/'], ['embed/', 'youtube.com/embed/'], $beasiswa->youtube_url) }}"
+                                    title="YouTube video player" 
+                                    frameborder="0" 
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                                    allowfullscreen>
+                                </iframe>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                @endif
+
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <!-- Main Description -->
                     <div class="lg:col-span-2 space-y-6">

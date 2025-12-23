@@ -150,16 +150,29 @@
                             <button class="accordion-toggle w-full px-4 py-3 text-left flex items-center justify-between hover:bg-gray-50 transition-colors"
                                     onclick="toggleDocument({{ $loop->index }})">
                                 <div class="flex items-center">
-                                    <i class="fas fa-file-pdf text-red-500 mr-3"></i>
-                                    <span class="text-sm font-medium text-gray-900">{{ $document->dokumen }}</span>
+                                    @if(isset($dataDokumenPengajuan[$docIndex]))
+                                        <i class="fas fa-file-pdf text-red-500 mr-3"></i>
+                                        <span class="text-sm font-medium text-gray-900">{{ $document->dokumen }}</span>
+                                    @else
+                                        <i class="fas fa-file-pdf text-gray-400 mr-3"></i>
+                                        <span class="text-sm font-medium text-gray-500">{{ $document->dokumen }}</span>
+                                        <span class="ml-2 text-xs text-gray-400">(Belum diupload)</span>
+                                    @endif
                                 </div>
                                 <i class="fas fa-chevron-down text-gray-400 transform transition-transform document-chevron-{{ $loop->index }}"></i>
                             </button>
                             <div class="document-content-{{ $loop->index }} hidden border-t border-gray-200 bg-gray-50 p-4">
-                                <div class="rounded-lg overflow-hidden bg-white">
-                                    <embed src="{{ $dataDokumenPengajuan[$docIndex]->link_dokumen }}"
-                                           width="100%" height="500" type="application/pdf" class="border-0">
-                                </div>
+                                @if(isset($dataDokumenPengajuan[$docIndex]))
+                                    <div class="rounded-lg overflow-hidden bg-white">
+                                        <embed src="{{ $dataDokumenPengajuan[$docIndex]->link_dokumen }}"
+                                               width="100%" height="500" type="application/pdf" class="border-0">
+                                    </div>
+                                @else
+                                    <div class="text-center py-8 text-gray-500">
+                                        <i class="fas fa-file-upload text-4xl mb-2"></i>
+                                        <p class="text-sm">Dokumen belum diupload</p>
+                                    </div>
+                                @endif
                             </div>
                         </div>
                         @php $docIndex++; @endphp

@@ -87,13 +87,14 @@ class PenerimaBeasiswaController extends Controller
 
         try {
             $file = $request->file('excelFile');
+            // dd($file);
             DB::transaction(function () use ($file) {
                 $this->importBeasiswaData($file);
             });
-
             return redirect()->route('pengumuman-beasiswa.index')
                 ->with('success', 'Beasiswa data imported successfully.');
         } catch (\Throwable $e) {
+            dd($e->getMessage());
             Log::error('Beasiswa Import Error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
 
             return redirect()->route('beasiswa.import-data-beasiswa')

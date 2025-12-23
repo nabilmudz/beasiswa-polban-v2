@@ -57,6 +57,17 @@
                         @enderror
                     </div>
 
+                    <!-- YouTube URL -->
+                    <div class="mb-4">
+                        <label for="youtube_url" class="block text-sm font-medium text-gray-700">URL YouTube (Opsional)</label>
+                        <input type="url" id="youtube_url" name="youtube_url" value="{{old('youtube_url', $beasiswa->youtube_url)}}" placeholder="https://www.youtube.com/watch?v=..."
+                            class="block w-full border @error('youtube_url') border-red-500 @enderror rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
+                        @error('youtube_url')
+                            <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                        @enderror
+                        <p class="text-gray-500 text-xs mt-1">Masukkan URL video YouTube untuk ditampilkan di halaman detail beasiswa</p>
+                    </div>
+
                     <!-- Publish Penerima Beasiswa -->
                     <div>
                         <p class="block text-sm font-medium text-gray-700">Terbitkan Penerima Beasiswa?</p>
@@ -78,6 +89,33 @@
                                         class="form-radio h-5 w-5 text-blue-500 rounded-full @error('publish_beasiswa') border-red-500 @enderror focus:ring-blue-500"
                                         {{ old('publish_beasiswa', $beasiswa->publish) == '0' ? 'checked' : '' }}>
                                     <span class="text-gray-600">Tidak</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Allow Multiple Beasiswa -->
+                    <div>
+                        <p class="block text-sm font-medium text-gray-700">Izinkan Mahasiswa Menerima Beasiswa Ganda?</p>
+                        <p class="text-xs text-gray-500 mb-2">Tentukan apakah mahasiswa boleh menerima beasiswa ini bersamaan dengan beasiswa lain</p>
+                        @error('allow_multiple')
+                            <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                        @enderror
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                            <div class="mb-4">
+                                <label for="allow_multiple_yes" class="flex items-center space-x-3">
+                                    <input type="radio" id="allow_multiple_yes" name="allow_multiple" value="1"
+                                        class="form-radio h-5 w-5 text-blue-500 rounded-full @error('allow_multiple') border-red-500 @enderror focus:ring-blue-500"
+                                        {{ old('allow_multiple', $beasiswa->allow_multiple) == '1' ? 'checked' : '' }}>
+                                    <span class="text-gray-600">Ya, Boleh Ganda</span>
+                                </label>
+                            </div>
+                            <div class="mb-4">
+                                <label for="allow_multiple_no" class="flex items-center space-x-3">
+                                    <input type="radio" id="allow_multiple_no" name="allow_multiple" value="0"
+                                        class="form-radio h-5 w-5 text-blue-500 rounded-full @error('allow_multiple') border-red-500 @enderror focus:ring-blue-500"
+                                        {{ old('allow_multiple', $beasiswa->allow_multiple) == '0' ? 'checked' : '' }}>
+                                    <span class="text-gray-600">Tidak, Hanya 1 Beasiswa</span>
                                 </label>
                             </div>
                         </div>
@@ -365,6 +403,17 @@
                         @enderror
                     </div>
 
+                    <!-- YouTube URL -->
+                    <div class="mb-4">
+                        <label for="youtube_url" class="block text-sm font-medium text-gray-700">URL YouTube (Opsional)</label>
+                        <input type="url" id="youtube_url" name="youtube_url" value="{{old('youtube_url')}}" placeholder="https://www.youtube.com/watch?v=..."
+                            class="block w-full border @error('youtube_url') border-red-500 @enderror rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
+                        @error('youtube_url')
+                            <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                        @enderror
+                        <p class="text-gray-500 text-xs mt-1">Masukkan URL video YouTube untuk ditampilkan di halaman detail beasiswa</p>
+                    </div>
+
                     <!-- Publish Penerima Beasiswa -->
                     <div>
                         <p class="block text-sm font-medium text-gray-700">Terbitkan Penerima Beasiswa?</p>
@@ -386,6 +435,33 @@
                                         class="form-radio h-5 w-5 text-blue-500 rounded-full @error('publish_beasiswa') border-red-500 @enderror focus:ring-blue-500"
                                         {{ old('publish_beasiswa') == '0' ? 'checked' : '' }}>
                                     <span class="text-gray-600">Tidak</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Allow Multiple Beasiswa -->
+                    <div>
+                        <p class="block text-sm font-medium text-gray-700">Izinkan Mahasiswa Menerima Beasiswa Ganda?</p>
+                        <p class="text-xs text-gray-500 mb-2">Tentukan apakah mahasiswa boleh menerima beasiswa ini bersamaan dengan beasiswa lain</p>
+                        @error('allow_multiple')
+                            <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                        @enderror
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                            <div class="mb-4">
+                                <label for="allow_multiple_yes_create" class="flex items-center space-x-3">
+                                    <input type="radio" id="allow_multiple_yes_create" name="allow_multiple" value="1"
+                                        class="form-radio h-5 w-5 text-blue-500 rounded-full @error('allow_multiple') border-red-500 @enderror focus:ring-blue-500"
+                                        {{ old('allow_multiple') == '1' ? 'checked' : '' }}>
+                                    <span class="text-gray-600">Ya, Boleh Ganda</span>
+                                </label>
+                            </div>
+                            <div class="mb-4">
+                                <label for="allow_multiple_no_create" class="flex items-center space-x-3">
+                                    <input type="radio" id="allow_multiple_no_create" name="allow_multiple" value="0"
+                                        class="form-radio h-5 w-5 text-blue-500 rounded-full @error('allow_multiple') border-red-500 @enderror focus:ring-blue-500"
+                                        {{ old('allow_multiple', '0') == '0' ? 'checked' : '' }}>
+                                    <span class="text-gray-600">Tidak, Hanya 1 Beasiswa</span>
                                 </label>
                             </div>
                         </div>

@@ -121,7 +121,18 @@
                         $canRegister = true;
 
                         // Determine if user can actually apply (different from viewing)
-                        $canApply = !$isAnyBeasiswaReceived || ($ba->status == 'half' && $ba->tanggal_berakhir > $currentDate && $ba->tanggal_berakhir <= $oneYearLater);
+                        // Logika baru: cek status_beasiswa dari mahasiswa
+                        // Jika mahasiswa punya beasiswa (status_beasiswa = 1), hanya bisa apply beasiswa yang allow_multiple = true
+                        // Jika mahasiswa tidak punya beasiswa (status_beasiswa = 0), bisa apply semua beasiswa
+                        $mahasiswaHasBeasiswa = isset($mhsNIM) && $mhsNIM->status_beasiswa == 1;
+                        
+                        if ($mahasiswaHasBeasiswa) {
+                            // Jika punya beasiswa, hanya bisa apply yang allow_multiple = true
+                            $canApply = $ba->allow_multiple;
+                        } else {
+                            // Jika tidak punya beasiswa, bisa apply semua (kecuali yang berakhir atau closed)
+                            $canApply = true;
+                        }
 
                         $statusColors = [
                             'berlangsung' => 'bg-green-500 text-white',
@@ -162,10 +173,8 @@
                                 </span>
                             </div>
 
-
-                                                                <a href="{{ route('beasiswa.pengumuman-beasiswa',['id'=>$ba->id])}}" data-nama-beasiswa="{{ $ba->nama_beasiswa }}"
-                                   class="absolute inset-0">
-
+                            <a href="{{ route('beasiswa.pengumuman-beasiswa',['id'=>$ba->id])}}" data-nama-beasiswa="{{ $ba->nama_beasiswa }}"
+                               class="absolute inset-0">
                             </a>
 
                             <!-- CHANGED: Only show overlay if can't apply, but still allow viewing -->
@@ -202,6 +211,36 @@
                             <p class="text-sm text-gray-600 mb-4 line-clamp-3">
                                 {{ Str::limit($ba->deskripsi, 120, '...') }}
                             </p>
+
+                            <!-- YouTube Video Preview -->
+                            @if($ba->youtube_url)
+                            <div class="mb-4">
+                                @php
+                                    // Extract video ID from YouTube URL
+                                    preg_match('/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/', $ba->youtube_url, $matches);
+                                    $videoId = $matches[1] ?? null;
+                                @endphp
+                                @if($videoId)
+                                <button type="button" onclick="openVideoModal('{{ $videoId }}', '{{ addslashes($ba->nama_beasiswa) }}')" class="block relative group/video w-full text-left">
+                                    <div class="relative rounded-lg overflow-hidden">
+                                        <img src="https://img.youtube.com/vi/{{ $videoId }}/mqdefault.jpg" 
+                                             alt="Video thumbnail" 
+                                             class="w-full h-32 object-cover">
+                                        <div class="absolute inset-0 bg-black bg-opacity-40 group-hover/video:bg-opacity-50 transition-all flex items-center justify-center">
+                                            <div class="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center group-hover/video:scale-110 transition-transform">
+                                                <svg class="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M8 5v14l11-7z"/>
+                                                </svg>
+                                            </div>
+                                        </div>
+                                        <div class="absolute bottom-2 right-2 px-2 py-1 bg-black bg-opacity-75 rounded text-xs text-white">
+                                            Video
+                                        </div>
+                                    </div>
+                                </button>
+                                @endif
+                            </div>
+                            @endif
 
                             <!-- Footer -->
                             <div class="flex items-center justify-between">
@@ -449,6 +488,39 @@
             document.querySelectorAll('input[type="number"]').forEach(inp => inp.value = '');
         }
 
+        // YouTube Video Modal Functions
+        function openVideoModal(videoId, title) {
+            const modal = document.getElementById('videoModal');
+            const iframe = document.getElementById('videoIframe');
+            const modalTitle = document.getElementById('videoModalTitle');
+            
+            iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+            modalTitle.textContent = title;
+            modal.classList.remove('hidden');
+            document.body.classList.add('overflow-hidden');
+        }
+
+        function closeVideoModal() {
+            const modal = document.getElementById('videoModal');
+            const iframe = document.getElementById('videoIframe');
+            
+            iframe.src = '';
+            modal.classList.add('hidden');
+            document.body.classList.remove('overflow-hidden');
+        }
+
+        // Close modal when clicking outside
+        document.addEventListener('DOMContentLoaded', function() {
+            const modal = document.getElementById('videoModal');
+            if (modal) {
+                modal.addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        closeVideoModal();
+                    }
+                });
+            }
+        });
+
         // Close modal on Escape key
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
@@ -461,4 +533,28 @@
             filterScholarships();
         });
     </script>
+
+    <!-- YouTube Video Modal -->
+    <div id="videoModal" class="hidden fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
+        <div class="relative w-full max-w-4xl bg-white rounded-lg shadow-2xl overflow-hidden">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
+                <h3 id="videoModalTitle" class="text-lg font-semibold text-gray-900"></h3>
+                <button onclick="closeVideoModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <!-- Video Container -->
+            <div class="relative bg-black" style="padding-bottom: 56.25%;">
+                <iframe id="videoIframe" 
+                        class="absolute top-0 left-0 w-full h-full" 
+                        frameborder="0" 
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                        allowfullscreen>
+                </iframe>
+            </div>
+        </div>
+    </div>
 @endsection

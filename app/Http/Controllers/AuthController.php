@@ -169,6 +169,10 @@ class AuthController extends Controller
                 'prodi_id' => 'required|exists:prodi,id',
                 'no_hp' => 'required|string|unique:mahasiswa,no_hp',
                 'angkatan' => 'required|integer|digits:4',
+                'ipk_file' => 'required|file|mimes:pdf,jpg,jpeg,png|max:2048',
+                'ukt_file' => 'required|file|mimes:pdf,jpg,jpeg,png|max:2048',
+                'status_beasiswa' => 'required|boolean',
+                'nama_beasiswa_saat_ini' => 'required_if:status_beasiswa,1|nullable|string|max:255',
             ],[
                 'nim.size' => 'NIM harus berjumlah 9 karakter.',
                 'nim.required' => 'NIM wajib diisi.',
@@ -177,8 +181,30 @@ class AuthController extends Controller
                 'semester.max' => 'Semester maksimal 8.',
                 'no_hp.unique' => 'Nomor HP sudah terdaftar.',
                 'angkatan.digits' => 'Angkatan harus terdiri dari 4 digit.',
-                // Add custom messages for other fields if necessary
+                'ipk_file.required' => 'File IPK wajib diupload.',
+                'ipk_file.mimes' => 'File IPK harus berformat PDF, JPG, JPEG, atau PNG.',
+                'ipk_file.max' => 'Ukuran file IPK maksimal 2MB.',
+                'ukt_file.required' => 'File UKT wajib diupload.',
+                'ukt_file.mimes' => 'File UKT harus berformat PDF, JPG, JPEG, atau PNG.',
+                'ukt_file.max' => 'Ukuran file UKT maksimal 2MB.',
+                'nama_beasiswa_saat_ini.required_if' => 'Nama beasiswa wajib diisi jika sedang menjalani beasiswa.',
             ]);
+
+            // Handle file uploads
+            $ipkPath = null;
+            $uktPath = null;
+
+            if ($request->hasFile('ipk_file')) {
+                $ipkFile = $request->file('ipk_file');
+                $ipkFileName = 'ipk_' . $request->nim . '_' . time() . '.' . $ipkFile->getClientOriginalExtension();
+                $ipkPath = $ipkFile->storeAs('mahasiswa/ipk', $ipkFileName, 'public');
+            }
+
+            if ($request->hasFile('ukt_file')) {
+                $uktFile = $request->file('ukt_file');
+                $uktFileName = 'ukt_' . $request->nim . '_' . time() . '.' . $uktFile->getClientOriginalExtension();
+                $uktPath = $uktFile->storeAs('mahasiswa/ukt', $uktFileName, 'public');
+            }
 
             // Menambahkan data mahasiswa
             Mahasiswa::create([
@@ -189,6 +215,10 @@ class AuthController extends Controller
                 'prodi_id' => $request->prodi_id,
                 'no_hp' => $request->no_hp,
                 'angkatan' => $request->angkatan,
+                'ipk_file' => $ipkPath,
+                'ukt_file' => $uktPath,
+                'status_beasiswa' => $request->status_beasiswa,
+                'nama_beasiswa_saat_ini' => $request->status_beasiswa == 1 ? $request->nama_beasiswa_saat_ini : null,
             ]);
 
             // Memperbarui data pengguna

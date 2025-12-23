@@ -83,6 +83,28 @@
         <!-- Content Sections -->
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12">
 
+            <!-- YouTube Video Section -->
+            @if($beasiswa->youtube_url)
+            <section class="bg-white rounded-2xl shadow-sm border overflow-hidden">
+                <div class="px-8 py-6 border-b bg-gradient-to-r from-red-50 to-pink-50">
+                    <h2 class="text-2xl font-bold text-gray-900">Video Penjelasan</h2>
+                    <p class="text-gray-600 mt-1">Tonton video untuk informasi lebih lanjut</p>
+                </div>
+                <div class="p-8">
+                    <div class="relative w-full" style="padding-bottom: 56.25%;">
+                        <iframe 
+                            class="absolute top-0 left-0 w-full h-full rounded-xl shadow-lg"
+                            src="{{ str_replace(['watch?v=', 'youtu.be/'], ['embed/', 'youtube.com/embed/'], $beasiswa->youtube_url) }}"
+                            title="YouTube video player" 
+                            frameborder="0" 
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                            allowfullscreen>
+                        </iframe>
+                    </div>
+                </div>
+            </section>
+            @endif
+
             <!-- Benefits Section -->
             <section class="bg-white rounded-2xl shadow-sm border overflow-hidden">
                 <div class="px-8 py-6 border-b bg-gradient-to-r from-blue-50 to-indigo-50">

@@ -113,7 +113,18 @@
                         $canRegister = true;
 
                         // Determine if user can actually apply (different from viewing)
-                        $canApply = !$isAnyBeasiswaReceived || ($ba->status == 'half' && $ba->tanggal_berakhir > $currentDate && $ba->tanggal_berakhir <= $oneYearLater);
+                        // Logika baru: cek status_beasiswa dari mahasiswa
+                        // Jika mahasiswa punya beasiswa (status_beasiswa = 1), hanya bisa apply beasiswa yang allow_multiple = true
+                        // Jika mahasiswa tidak punya beasiswa (status_beasiswa = 0), bisa apply semua beasiswa
+                        $mahasiswaHasBeasiswa = isset($mhsNIM) && $mhsNIM->status_beasiswa == 1;
+                        
+                        if ($mahasiswaHasBeasiswa) {
+                            // Jika punya beasiswa, hanya bisa apply yang allow_multiple = true
+                            $canApply = $ba->allow_multiple;
+                        } else {
+                            // Jika tidak punya beasiswa, bisa apply semua (kecuali yang berakhir atau closed)
+                            $canApply = true;
+                        }
 
                         $statusColors = [
                             'berlangsung' => 'bg-green-500 text-white',
@@ -196,6 +207,36 @@
                                 {{ Str::limit($ba->deskripsi, 120, '...') }}
                             </p>
 
+                            <!-- YouTube Video Preview -->
+                            @if($ba->youtube_url)
+                            <div class="mb-4">
+                                @php
+                                    // Extract video ID from YouTube URL
+                                    preg_match('/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/', $ba->youtube_url, $matches);
+                                    $videoId = $matches[1] ?? null;
+                                @endphp
+                                @if($videoId)
+                                <button type="button" onclick="openVideoModal('{{ $videoId }}', '{{ addslashes($ba->nama_beasiswa) }}')" class="block relative group/video w-full text-left">
+                                    <div class="relative rounded-lg overflow-hidden">
+                                        <img src="https://img.youtube.com/vi/{{ $videoId }}/mqdefault.jpg" 
+                                             alt="Video thumbnail" 
+                                             class="w-full h-32 object-cover">
+                                        <div class="absolute inset-0 bg-black bg-opacity-40 group-hover/video:bg-opacity-50 transition-all flex items-center justify-center">
+                                            <div class="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center group-hover/video:scale-110 transition-transform">
+                                                <svg class="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M8 5v14l11-7z"/>
+                                                </svg>
+                                            </div>
+                                        </div>
+                                        <div class="absolute bottom-2 right-2 px-2 py-1 bg-black bg-opacity-75 rounded text-xs text-white">
+                                            Video
+                                        </div>
+                                    </div>
+                                </button>
+                                @endif
+                            </div>
+                            @endif
+
                             <!-- Footer -->
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center space-x-2">
@@ -250,6 +291,35 @@
                 <button onclick="resetFilters()" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
                     Reset Filter
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- YouTube Video Modal -->
+    <div id="videoModal" class="fixed inset-0 z-50 overflow-y-auto hidden" aria-labelledby="video-modal-title" role="dialog" aria-modal="true">
+        <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:p-0">
+            <div class="fixed inset-0 bg-black bg-opacity-75 transition-opacity backdrop-blur-sm" aria-hidden="true" onclick="closeVideoModal()"></div>
+
+            <div class="inline-block align-bottom bg-black rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-5xl sm:w-full">
+                <div class="bg-gray-900 px-6 py-4">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-semibold text-white" id="video-modal-title">
+                            Video Beasiswa
+                        </h3>
+                        <button onclick="closeVideoModal()" class="rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 p-2 transition-colors">
+                            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="relative bg-black" style="padding-bottom: 56.25%;">
+                    <iframe id="videoIframe" class="absolute top-0 left-0 w-full h-full" 
+                            frameborder="0" 
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                            allowfullscreen>
+                    </iframe>
+                </div>
             </div>
         </div>
     </div>
@@ -442,10 +512,36 @@
             document.querySelectorAll('input[type="number"]').forEach(inp => inp.value = '');
         }
 
+        // Video Modal functions
+        function openVideoModal(videoId, title) {
+            const modal = document.getElementById('videoModal');
+            const iframe = document.getElementById('videoIframe');
+            const modalTitle = document.getElementById('video-modal-title');
+            
+            // Set iframe source with autoplay
+            iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
+            modalTitle.textContent = title;
+            
+            modal.classList.remove('hidden');
+            document.body.classList.add('overflow-hidden');
+        }
+
+        function closeVideoModal() {
+            const modal = document.getElementById('videoModal');
+            const iframe = document.getElementById('videoIframe');
+            
+            // Stop video by removing source
+            iframe.src = '';
+            
+            modal.classList.add('hidden');
+            document.body.classList.remove('overflow-hidden');
+        }
+
         // Close modal on Escape key
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 hidePopup();
+                closeVideoModal();
             }
         });
 

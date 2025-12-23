@@ -157,8 +157,17 @@ class BeasiswaController extends Controller
             // Ambil data mahasiswa berdasarkan user_id
             $mhsNIM = Mahasiswa::where('user_id', $user->id)->first();
 
-            // Cek apakah mahasiswa sudah mengajukan beasiswa
-            $checkPengajuan = $mhsNIM ? PengajuanBeasiswa::where('nim', $mhsNIM->nim)->exists() : false;
+            // Cek apakah mahasiswa sudah mengajukan beasiswa ini
+            $checkPengajuan = $mhsNIM ? PengajuanBeasiswa::where('nim', $mhsNIM->nim)
+                                                        ->where('beasiswa_id', $id)
+                                                        ->where('status', '!=', 11)
+                                                        ->exists() : false;
+            
+            // Logika baru: Jika beasiswa tidak allow_multiple, cek status_beasiswa mahasiswa
+            if (!$checkPengajuan && $mhsNIM && !$beasiswa->allow_multiple) {
+                // Jika mahasiswa sudah punya beasiswa (status_beasiswa = 1), tidak bisa apply
+                $checkPengajuan = $mhsNIM->status_beasiswa == 1;
+            }
         }
 
         // Return view dengan data yang sudah dipersiapkan
@@ -266,13 +275,15 @@ class BeasiswaController extends Controller
         $beasiswa = Beasiswa::create([
             'nama_beasiswa' => $data['nama_beasiswa'],
             'deskripsi' => $data['deskripsi'],
+            'youtube_url' => $data['youtube_url'] ?? null,
             'jenis_beasiswa' => $data['jenis_beasiswa'],
             'tipe_beasiswa' => $data['tipe_beasiswa'],
             'kuota' => $data['kuota_beasiswa'],
             'sumber' => $data['sumber_beasiswa'],
             'tanggal_mulai' => $data['tanggal_mulai'],
             'tanggal_berakhir' => $data['tanggal_berakhir'],
-            'publish' => $data['publish_beasiswa']
+            'publish' => $data['publish_beasiswa'],
+            'allow_multiple' => $data['allow_multiple']
         ]);
 
         // Panggil fungsi storeLinkBeasiswa jika ada link dan tipe beasiswa sesuai
@@ -630,12 +641,19 @@ class BeasiswaController extends Controller
             // Ambil data mahasiswa berdasarkan user_id
             $mhsNIM = Mahasiswa::where('user_id', $user->id)->first();
 
-            // Cek apakah mahasiswa sudah mengajukan beasiswa
+            // Cek apakah mahasiswa sudah mengajukan beasiswa ini
             $checkPengajuan = $mhsNIM
                             ? PengajuanBeasiswa::where('nim', $mhsNIM->nim)
+                                            ->where('beasiswa_id', $id)
                                             ->where('status', '!=', 11)
                                             ->exists()
                             : false;
+            
+            // Logika baru: Jika beasiswa tidak allow_multiple, cek status_beasiswa mahasiswa
+            if (!$checkPengajuan && $mhsNIM && !$beasiswa->allow_multiple) {
+                // Jika mahasiswa sudah punya beasiswa (status_beasiswa = 1), tidak bisa apply
+                $checkPengajuan = $mhsNIM->status_beasiswa == 1;
+            }
 
         }
 
@@ -691,12 +709,14 @@ class BeasiswaController extends Controller
             $beasiswa->fill([
                 'nama_beasiswa' => $validatedData['nama_beasiswa'],
                 'deskripsi' => $validatedData['deskripsi'],
+                'youtube_url' => $validatedData['youtube_url'] ?? null,
                 'jenis_beasiswa' => $validatedData['jenis_beasiswa'],
                 'kuota' => $validatedData['kuota_beasiswa'],
                 'tanggal_mulai' => $validatedData['tanggal_mulai'],
                 'tanggal_berakhir' => $validatedData['tanggal_berakhir'],
                 'sumber' => $validatedData['sumber_beasiswa'],
                 'publish' => $validatedData['publish_beasiswa'],
+                'allow_multiple' => $validatedData['allow_multiple'],
             ]);
             $beasiswa->save();
 
@@ -991,6 +1011,7 @@ class BeasiswaController extends Controller
     private $validation_rules = [
         'nama_beasiswa' => 'required|string|max:255',
         'deskripsi' => 'required|string',
+        'youtube_url' => 'nullable|url',
         'jenis_beasiswa' => 'required|string|in:full,half',
         'tipe_beasiswa' => 'required|string|in:kipk,internal,eksternal',
         'kuota_beasiswa' => 'required|integer|min:1',
@@ -1008,12 +1029,14 @@ class BeasiswaController extends Controller
         'poster' => 'required|array|max:3',
         'poster.*' => 'required|file|mimes:jpeg,png,jpg',
         'link_beasiswa' => 'nullable|url',
-        'publish_beasiswa' => 'required|boolean'
+        'publish_beasiswa' => 'required|boolean',
+        'allow_multiple' => 'required|boolean'
 
     ];
     private $edit_validation_rules = [
         'nama_beasiswa' => 'required|string|max:255',
         'deskripsi' => 'required|string',
+        'youtube_url' => 'nullable|url',
         'jenis_beasiswa' => 'required|string|in:full,half',
         'tipe_beasiswa' => 'string|in:kipk,internal,eksternal',
         'kuota_beasiswa' => 'required|integer|min:1',
@@ -1031,7 +1054,33 @@ class BeasiswaController extends Controller
         'poster' => 'required|array|max:3',
         'poster.*' => 'required|string',
         'link_beasiswa' => 'nullable|url',
-        'publish_beasiswa' => 'required|boolean'
+        'publish_beasiswa' => 'required|boolean',
+        'allow_multiple' => 'required|boolean'
 
     ];
+
+    /**
+     * Cek apakah mahasiswa memiliki beasiswa aktif
+     */
+    private function hasActiveBeasiswa(string $nim)
+    {
+        $mahasiswa = Mahasiswa::where('nim', $nim)->first();
+        if (!$mahasiswa) {
+            return false;
+        }
+
+        // Cek di tabel penerima_beasiswa
+        $penerimaBeasiswa = $mahasiswa->penerimaBeasiswa()->with('beasiswa')->get();
+        
+        foreach ($penerimaBeasiswa as $penerima) {
+            $beasiswa = $penerima->beasiswa;
+            
+            // Cek jika beasiswa masih aktif (tanggal berakhir >= hari ini)
+            if ($beasiswa && $beasiswa->tanggal_berakhir >= now()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

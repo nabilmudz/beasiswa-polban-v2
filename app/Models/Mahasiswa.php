@@ -15,7 +15,19 @@ class Mahasiswa extends Model
     protected $table = 'mahasiswa';
 
     // Tentukan kolom yang bisa diisi secara massal
-    protected $fillable = ['nim','semester','tgl_lahir','no_hp','prodi_id','angkatan','user_id'];
+    protected $fillable = [
+        'nim',
+        'semester',
+        'tgl_lahir',
+        'no_hp',
+        'prodi_id',
+        'angkatan',
+        'user_id',
+        'ipk_file',
+        'ukt_file',
+        'status_beasiswa',
+        'nama_beasiswa_saat_ini'
+    ];
 
     public function pengajuanBeasiswa()
     {

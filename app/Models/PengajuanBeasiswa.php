@@ -12,11 +12,14 @@ class PengajuanBeasiswa extends Model
 
     // Tentukan nama tabel jika berbeda dengan konvensi Laravel
     protected $table = 'pengajuan_beasiswa';
+    
+    // Primary key adalah UUID
+    protected $primaryKey = 'id';
+    public $incrementing = false; // UUID bukan auto-increment
+    protected $keyType = 'string'; // UUID disimpan sebagai string
 
     // Tentukan kolom yang bisa diisi secara massal
-    protected $fillable = ['beasiswa_id','nim','tanggal_pengajuan','status', 'komentar'];
-
-    protected $keyType = 'string'; // UUID disimpan sebagai string
+    protected $fillable = ['id', 'beasiswa_id','nim','tanggal_pengajuan','status', 'komentar'];
 
     protected static function boot()
     {

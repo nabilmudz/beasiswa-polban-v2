@@ -64,6 +64,16 @@ class PengajuanBeasiswaController extends Controller
 
         $mhs = $this->getAuthenticatedMahasiswa();
 
+        // Cek apakah mahasiswa sudah punya beasiswa aktif (berdasarkan status_beasiswa)
+        $beasiswaController = new BeasiswaController();
+        $beasiswa = $beasiswaController->getBeasiswaDataBaseOnBeasiswaId($id);
+        
+        // Logika baru: Jika beasiswa tidak mengizinkan multiple dan mahasiswa sudah punya beasiswa
+        if (!$beasiswa->allow_multiple && $mhs->status_beasiswa == 1) {
+            return redirect()->route('pengajuan.create', ['id' => $id])
+                ->with('error', 'Anda sudah memiliki beasiswa aktif (' . $mhs->nama_beasiswa_saat_ini . '). Beasiswa ini tidak mengizinkan beasiswa ganda.');
+        }
+
         if ($this->hasExistingSubmission($mhs->nim)) {
             return redirect()->route('pengajuan.create', ['id' => $id])
                 ->with('error', 'Tidak Bisa Mengajukan Beasiswa Lagi.');
@@ -73,6 +83,17 @@ class PengajuanBeasiswaController extends Controller
 
         try {
             $pengajuanBeasiswa = $this->createPengajuanBeasiswa($mhs->nim, $id);
+            
+            Log::info("Created PengajuanBeasiswa", [
+                'id' => $pengajuanBeasiswa->id,
+                'nim' => $pengajuanBeasiswa->nim,
+                'beasiswa_id' => $pengajuanBeasiswa->beasiswa_id
+            ]);
+            
+            if (!$pengajuanBeasiswa->id) {
+                throw new \Exception("Failed to generate Pengajuan ID");
+            }
+            
             $this->processDokumenUpload($request, $dokumen, $pengajuanBeasiswa->id);
 
             $this->sendSubmissionEmails($mhs->nim, $id);
@@ -84,9 +105,8 @@ class PengajuanBeasiswaController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error("Error creating Pengajuan Beasiswa: {$e->getMessage()}", ['exception' => $e]);
-            dd($e->getMessage());
             return redirect()->route('pengajuan.create', ['id' => $id])
-                ->with('error', 'Failed to create Beasiswa. Please try again.'. $e->getMessage());
+                ->with('error', 'Failed to create Beasiswa. Please try again. ' . $e->getMessage());
         }
     }
 
@@ -517,17 +537,43 @@ class PengajuanBeasiswaController extends Controller
             $fileKey = 'file_' . ($index + 1);
             $file = $request->file($fileKey);
 
-            $newRequest = new Request();
-            $newRequest->files->set('file', $file);
-            $newRequest->merge(['path' => 'dokumen-pengajuan']);
-            $fileUrl = $fileController->uploadFileLocal($newRequest);
+            // Skip jika file tidak ada
+            if (!$file) {
+                Log::info("Skipping file upload for {$fileKey} - no file provided");
+                continue;
+            }
 
-            PengajuanDokumen::create([
-                'kode_dokumen' => hash('sha256', $file->getClientOriginalName() . rand(0, 99999)),
-                'nama_dokumen' => $file->getClientOriginalName(),
-                'link_dokumen' => $fileUrl->getData()->url,
-                'id_pengajuan_beasiswa' => $pengajuanId,
+            Log::info("Processing file upload for {$fileKey}", [
+                'filename' => $file->getClientOriginalName(),
+                'pengajuan_id' => $pengajuanId
             ]);
+
+            try {
+                $newRequest = new Request();
+                $newRequest->files->set('file', $file);
+                $newRequest->merge(['path' => 'dokumen-pengajuan']);
+                $fileUrlResponse = $fileController->uploadFileLocal($newRequest);
+                
+                // Get URL from JSON response
+                $fileUrlData = json_decode($fileUrlResponse->getContent(), true);
+                $fileUrl = $fileUrlData['url'] ?? null;
+                
+                if (!$fileUrl) {
+                    throw new \Exception("Failed to get file URL for {$fileKey}");
+                }
+
+                PengajuanDokumen::create([
+                    'kode_dokumen' => hash('sha256', $file->getClientOriginalName() . rand(0, 99999)),
+                    'nama_dokumen' => $file->getClientOriginalName(),
+                    'link_dokumen' => $fileUrl,
+                    'id_pengajuan_beasiswa' => $pengajuanId,
+                ]);
+                
+                Log::info("Successfully uploaded document for {$fileKey}");
+            } catch (\Exception $e) {
+                Log::error("Error uploading file {$fileKey}: " . $e->getMessage());
+                throw $e;
+            }
         }
     }
 
@@ -558,11 +604,15 @@ class PengajuanBeasiswaController extends Controller
                 $newRequest = new Request();
                 $newRequest->files->set('file', $file);
                 $newRequest->merge(['path' => 'dokumen-pengajuan']);
-                $fileUrl = $fileController->uploadFileLocal($newRequest);
+                $fileUrlResponse = $fileController->uploadFileLocal($newRequest);
+                
+                // Get URL from JSON response
+                $fileUrlData = json_decode($fileUrlResponse->getContent(), true);
+                $fileUrl = $fileUrlData['url'] ?? null;
 
                 $dokumenItem->update([
                     'nama_dokumen' => $file->getClientOriginalName(),
-                    'link_dokumen' => $fileUrl->getData()->url
+                    'link_dokumen' => $fileUrl
                 ]);
             }
         }
@@ -571,6 +621,29 @@ class PengajuanBeasiswaController extends Controller
     private function getProdi(string $prodiId)
     {
         return Prodi::findOrFail($prodiId);
+    }
+
+    private function hasActiveBeasiswa(string $nim)
+    {
+        // Cek apakah mahasiswa punya penerima beasiswa yang aktif
+        $mahasiswa = Mahasiswa::where('nim', $nim)->first();
+        if (!$mahasiswa) {
+            return false;
+        }
+
+        // Cek di tabel penerima_beasiswa
+        $penerimaBeasiswa = $mahasiswa->penerimaBeasiswa()->with('beasiswa')->get();
+        
+        foreach ($penerimaBeasiswa as $penerima) {
+            $beasiswa = $penerima->beasiswa;
+            
+            // Cek jika beasiswa masih aktif (tanggal berakhir >= hari ini)
+            if ($beasiswa && $beasiswa->tanggal_berakhir >= now()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function getJurusan(string $jurusanId)

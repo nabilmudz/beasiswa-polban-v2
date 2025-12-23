@@ -14,8 +14,7 @@ class UsersTableSeeder extends Seeder
      */
     public function run(): void
     {
-
-        DB::table('users')->insert([
+        $users = [
             [
                 'id'=>1,
                 'nama_depan' => 'John',
@@ -159,9 +158,7 @@ class UsersTableSeeder extends Seeder
                 'updated_at' => now(),
                 'isActive' => true
             ],
-
             [
-
                 'id' => 13,
                 'nama_depan' => 'Kepala Jurusan',
                 'nama_belakang' => 'Bahasa Inggris',
@@ -213,7 +210,39 @@ class UsersTableSeeder extends Seeder
                 'updated_at' => now(),
                 'isActive' => true
             ],
-        ]);
+            [
+                'id'=>17,
+                'nama_depan' => 'Melly',
+                'nama_belakang' => 'D',
+                'email' => 'mellydwilian@polban.ac.id',
+                'password' => bcrypt('password123'),
+                'emailVerif' => true,
+                'jenis_kelamin' => 'Wanita',
+                'foto' => 'example.jpg',
+                'created_at' => now(),
+                'updated_at' => now(),
+                'isActive' => true
+            ],
+            [
+                'id'=>18,
+                'nama_depan' => 'Adrian',
+                'nama_belakang' => 'S',
+                'email' => 'adrian@polban.ac.id',
+                'password' => bcrypt('password123'),
+                'emailVerif' => true,
+                'jenis_kelamin' => 'Pria',
+                'foto' => 'example.jpg',
+                'created_at' => now(),
+                'updated_at' => now(),
+                'isActive' => true
+            ]
+        ];
 
+        foreach ($users as $user) {
+            DB::table('users')->updateOrInsert(
+                ['id' => $user['id']], // Kondisi cek: berdasarkan ID
+                $user // Data yang akan diinsert atau diupdate
+            );
+        }
     }
 }

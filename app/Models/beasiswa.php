@@ -22,7 +22,7 @@ class Beasiswa extends Model
     public $incrementing = false;
 
     // Tentukan kolom yang bisa diisi secara massal
-    protected $fillable = ['id','nama_beasiswa', 'deskripsi', 'jenis_beasiswa', 'tipe_beasiswa','kuota', 'sumber', 'tanggal_mulai', 'tanggal_berakhir', 'publish'];
+    protected $fillable = ['id','nama_beasiswa', 'deskripsi', 'youtube_url', 'jenis_beasiswa', 'tipe_beasiswa','kuota', 'sumber', 'tanggal_mulai', 'tanggal_berakhir', 'publish', 'allow_multiple'];
 
 
     protected $keyType = 'string'; // UUID disimpan sebagai string

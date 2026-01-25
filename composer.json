@@ -9,7 +9,7 @@
         "davcpas1234/laravelpdfviewer": "^1.0",
         "google/cloud-storage": "^1.43",
         "knackline/excel-to-x": "*",
-        "kreait/firebase-php": "7.0",
+        "kreait/firebase-php": "^7.13",
         "kreait/laravel-firebase": "^5.8",
         "laravel/framework": "^11.9",
         "laravel/tinker": "^2.9",

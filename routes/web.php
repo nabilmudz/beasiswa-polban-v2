@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BeasiswaController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FileController;
+use App\Http\Controllers\HistoryMahasiswaPenerimaController;
 use App\Http\Controllers\MaddingController;
 use App\Http\Controllers\MailController;
 use App\Http\Controllers\NotificationController;
@@ -44,11 +45,21 @@ Route::middleware(['auth', 'check.role:mahasiswa'])->group(function () {
         Route::post('/pengajuan/store/{id}', [PengajuanBeasiswaController::class, 'store'])->name('pengajuan.store');
         Route::patch('/pengajuan/edit/{id}',[PengajuanBeasiswaController::class, 'edit'])->name('pengajuan.edit');
     });
+});
+
+// Route untuk list beasiswa - diakses oleh mahasiswa dan ketua jurusan
+Route::middleware(['auth'])->group(function () {
     Route::get('/beasiswa', [BeasiswaController::class, 'index'])->name('beasiswa.index');
 });
 
-
+// Route untuk Ketua Jurusan mengajukan beasiswa untuk mahasiswa
 Route::middleware(['auth', 'check.role:reviewer'])->group(function () {
+    Route::get('/pengajuan-beasiswa-kajur/{id}', [PengajuanBeasiswaController::class, 'createForKajur'])->name('pengajuan.create-kajur');
+    Route::post('/pengajuan-kajur/store/{id}', [PengajuanBeasiswaController::class, 'storeForKajur'])->name('pengajuan.store-kajur');
+});
+
+// Route untuk Staff Kemahasiswaan, WD3, dll (BUKAN Ketua Jurusan) - Full CRUD
+Route::middleware(['auth', 'check.role:reviewer', 'not.kajur'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
     Route::get('/import-data-beasiswa', [BeasiswaController::class, 'getImportDataBeasiswa'])->name('beasiswa.import-data-beasiswa');
     Route::get('/list-pengaju-beasiswa', [BeasiswaController::class,'getListPengajuBeasiswa'])->name('beasiswa.list-pengaju-beasiswa');
@@ -68,10 +79,18 @@ Route::middleware(['auth', 'check.role:reviewer'])->group(function () {
     Route::get('/beasiswa/get-beasiswa/{id}', [BeasiswaController::class, 'getBeasiswa'])->name('Beasiswa.getBeasiswa');
     Route::post('/export-pengumuman-beasiswa/{id}',[PenerimaBeasiswaController::class, 'exportPenerimaBeasiswaInExcel'])->name('beasiswa.export-data-beasiswa');
 
+    // History Penerima Beasiswa Routes (2024-2025)
+    Route::get('/history-penerima', [HistoryMahasiswaPenerimaController::class, 'index'])->name('history-penerima.index');
+    Route::get('/history-penerima/import', [HistoryMahasiswaPenerimaController::class, 'importForm'])->name('history-penerima.import-form');
+    Route::post('/history-penerima/import', [HistoryMahasiswaPenerimaController::class, 'import'])->name('history-penerima.import');
+    Route::get('/history-penerima/export', [HistoryMahasiswaPenerimaController::class, 'export'])->name('history-penerima.export');
+    Route::delete('/history-penerima/{id}', [HistoryMahasiswaPenerimaController::class, 'destroy'])->name('history-penerima.destroy');
+
 });
 
 Route::controller(PengajuanBeasiswaController::class)->group(function () {
     Route::get('pengajuan/list-pengajuan',[PengajuanBeasiswaController::class, 'listPengajuanStaff'])->name('pengajuan.list-pengajuan');
+    Route::get('pengajuan/export',[PengajuanBeasiswaController::class, 'exportPengajuan'])->name('pengajuan.export');
     Route::get('/tracking-pengajuan/{id}', [PengajuanBeasiswaController::class, 'showTracking'])->name('pengajuan.tracking');
     Route::patch('/pengajuan/progress/{id}', [PengajuanBeasiswaController::class, 'progressPengajuan'])->name('pengajuan.update-progress');
     Route::delete('/tracking-pengajuan/{id}', [PengajuanBeasiswaController::class, 'batalkanPengajuan'])->name('pengajuan.batalkan-pengajuan');

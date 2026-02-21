@@ -8,6 +8,7 @@ use App\Models\Jurusan;
 use App\Models\Mahasiswa;
 use App\Models\PenerimaBeasiswa;
 use App\Models\PengajuanBeasiswa;
+use App\Models\Prodi;
 use App\Models\Reviewer;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -211,14 +212,52 @@ class PenerimaBeasiswaController extends Controller
      */
     private function importBeasiswaData($file)
     {
-        (new FastExcel)->import($file, function ($line) {
-            $data = $this->validateRow($line);
+        $skippedRows = 0;
+        $successRows = 0;
+        
+        (new FastExcel)->import($file, function ($line) use (&$skippedRows, &$successRows) {
+            // Map Excel columns to expected format with multiple possible column names
+            $mappedData = [
+                'NIM' => $line['NIM'] ?? $line['Nim'] ?? null,
+                'Nama Mahasiswa' => $line['Nama Mahasiswa'] ?? $line['Nama mahasiswa'] ?? null,
+                'Nama Prodi' => $line['Nama Prodi'] ?? $line['Program Studi'] ?? null,
+                'Nama Beasiswa' => $line['Nama Beasiswa'] ?? $line['Beasiswa ADIk'] ?? $line['Nama beasiswa'] ?? null,
+            ];
+            
+            // Handle Tanggal Diterima / Tahun
+            if (isset($line['Tanggal Diterima']) || isset($line['Tanggal diterima'])) {
+                $tanggalValue = trim($line['Tanggal Diterima'] ?? $line['Tanggal diterima']);
+                // If value is only 4 digits (year), convert to full date
+                if (preg_match('/^\d{4}$/', $tanggalValue)) {
+                    $mappedData['Tanggal Diterima'] = $tanggalValue . '-12-31';
+                } else {
+                    $mappedData['Tanggal Diterima'] = $tanggalValue;
+                }
+            } elseif (isset($line['Tahun'])) {
+                $mappedData['Tanggal Diterima'] = trim($line['Tahun']) . '-12-31';
+            } else {
+                // Default to current year end if no date/year provided
+                $mappedData['Tanggal Diterima'] = now()->endOfYear()->format('Y-m-d');
+            }
+            
+            // Check if mahasiswa exists, skip if not
+            $mahasiswa = Mahasiswa::where('nim', $mappedData['NIM'])->first();
+            if (!$mahasiswa) {
+                \Log::warning('Skipping row: Mahasiswa with NIM ' . $mappedData['NIM'] . ' not found in database');
+                $skippedRows++;
+                return; // Skip this row
+            }
+            
+            $data = $this->validateRow($mappedData);
             $beasiswa = $this->getBeasiswa($data['Nama Beasiswa']);
             $this->handlePenerimaBeasiswa($data, $beasiswa);
             $this->storeToViewIfValid($data);
+            $successRows++;
         });
+        
+        \Log::info("Import completed: {$successRows} rows imported, {$skippedRows} rows skipped");
     }
-
+    
     /**
      * Validate each row of the uploaded file.
      */
@@ -226,7 +265,7 @@ class PenerimaBeasiswaController extends Controller
     {
         return Validator::make($line, [
             'NIM' => 'required|integer',
-            'Nama Beasiswa' => 'required|string|exists:beasiswa,nama_beasiswa',
+            'Nama Beasiswa' => 'required|string',
             'Tanggal Diterima' => 'required|date',
             'Nama Mahasiswa' => 'required|string', // Validation for Nama Mahasiswa (must be a string)
             'Nama Prodi' => 'required|string', // Validation for Nama Prodi (must be a string)
@@ -234,13 +273,25 @@ class PenerimaBeasiswaController extends Controller
     }
     /**
      * Retrieve the beasiswa record based on the name.
+     * If not found, create a new beasiswa with default values.
      */
     private function getBeasiswa(string $beasiswaName)
     {
         $beasiswa = Beasiswa::where('nama_beasiswa', $beasiswaName)->first();
 
         if (!$beasiswa) {
-            throw new \Exception("Beasiswa with name {$beasiswaName} not found.");
+            // Auto-create beasiswa if not exists
+            $beasiswa = Beasiswa::create([
+                'nama_beasiswa' => $beasiswaName,
+                'deskripsi' => 'Import dari Excel - ' . $beasiswaName,
+                'tipe_beasiswa' => 'eksternal',
+                'jenis_beasiswa' => 'full',
+                'kuota' => 0,
+                'sumber' => 'Import Excel',
+                'tanggal_mulai' => now()->startOfYear(),
+                'tanggal_berakhir' => now()->endOfYear(),
+                'publish' => false,
+            ]);
         }
 
         return $beasiswa;
@@ -260,11 +311,18 @@ class PenerimaBeasiswaController extends Controller
         }
     }
 
-    /**
+    /**'0
      * Store new penerima beasiswa record.
      */
     private function storeNewPenerimaBeasiswa(array $data, $beasiswa)
     {
+        \Log::info('Storing new penerima beasiswa', [
+            'nim' => $data['NIM'],
+            'beasiswa_id' => $beasiswa->id,
+            'beasiswa_name' => $beasiswa->nama_beasiswa,
+            'tipe_beasiswa' => $beasiswa->tipe_beasiswa
+        ]);
+        
         if (!in_array($beasiswa->tipe_beasiswa, ['eksternal', 'kipk'])) {
             $isPengajuanExists = PengajuanBeasiswa::where('nim', $data['NIM'])
                 ->where('beasiswa_id', $beasiswa->id)
@@ -275,12 +333,16 @@ class PenerimaBeasiswaController extends Controller
                     'nim' => $data['NIM'],
                     'beasiswa_id' => $beasiswa->id,
                 ]);
+                \Log::info('Penerima beasiswa created (internal with pengajuan)');
+            } else {
+                \Log::warning('Skipping internal beasiswa: no pengajuan found', ['nim' => $data['NIM']]);
             }
         } else {
             PenerimaBeasiswa::create([
                 'nim' => $data['NIM'],
                 'beasiswa_id' => $beasiswa->id,
             ]);
+            \Log::info('Penerima beasiswa created (eksternal/kipk)');
         }
     }
 

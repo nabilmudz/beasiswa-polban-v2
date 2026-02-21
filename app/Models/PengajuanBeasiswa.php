@@ -19,7 +19,7 @@ class PengajuanBeasiswa extends Model
     protected $keyType = 'string'; // UUID disimpan sebagai string
 
     // Tentukan kolom yang bisa diisi secara massal
-    protected $fillable = ['id', 'beasiswa_id','nim','tanggal_pengajuan','status', 'komentar'];
+    protected $fillable = ['id', 'beasiswa_id','nim','user_id_pengaju','tanggal_pengajuan','status', 'komentar'];
 
     protected static function boot()
     {
@@ -41,6 +41,11 @@ class PengajuanBeasiswa extends Model
     public function Mahasiswa()
     {
         return $this->belongsTo(Mahasiswa::class);
+    }
+
+    public function Pengaju()
+    {
+        return $this->belongsTo(User::class, 'user_id_pengaju');
     }
 
     public function PengajuanDokumen()

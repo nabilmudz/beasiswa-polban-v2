@@ -284,7 +284,7 @@
                     </div>
                 </div>
 
-               @if(in_array($user->reviewer?->role->id, [1,2,3,4]))
+               @if(in_array($user->reviewer?->role->id, [1,2,4]))
                 <div>
                     <label for="nama_depan" class="block text-sm font-medium text-gray-700 mb-1">email</label>
                     <input id="nama_depan" name="email" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" value="{{ $email }}">

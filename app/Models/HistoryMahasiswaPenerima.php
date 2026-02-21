@@ -15,6 +15,12 @@ class HistoryMahasiswaPenerima extends Model
      * @var string
      */
     protected $table = 'history_mahasiswa_penerima'; // Sesuaikan dengan nama tabel Anda
+    
+    /**
+     * Primary key type (default integer auto increment)
+     */
+    // protected $keyType = 'int';
+    // public $incrementing = true;
 
     /**
      * Atribut yang dapat diisi secara massal.
@@ -26,6 +32,7 @@ class HistoryMahasiswaPenerima extends Model
         'nama_mahasiswa',
         'nama_prodi',
         'nama_beasiswa',
+        'tahun',
         // 'created_at' dan 'updated_at' biasanya dihandle otomatis oleh Eloquent
         // jika Anda tidak mengisinya secara manual dan kolomnya ada di tabel.
     ];

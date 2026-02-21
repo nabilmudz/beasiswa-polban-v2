@@ -21,13 +21,24 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Rap2hpoutre\FastExcel\FastExcel;
 
 class PengajuanBeasiswaController extends Controller
 {
-    public function listPengajuanStaff()
+    public function listPengajuanStaff(Request $request)
     {
         $user = Auth::user();
-        $listPengajuan = $this->getListPengajuan($user);
+        
+        // Debug: Log parameter yang diterima
+        Log::info('Filter Parameters:', [
+            'nama_beasiswa' => $request->nama_beasiswa,
+            'tanggal_pengajuan' => $request->tanggal_pengajuan,
+            'tanggal_dari' => $request->tanggal_dari,
+            'tanggal_sampai' => $request->tanggal_sampai,
+            'all_params' => $request->all()
+        ]);
+        
+        $listPengajuan = $this->getListPengajuan($user, $request);
         $namaBeasiswa = Beasiswa::pluck('nama_beasiswa');
 
         return view('pages.Beasiswa.list-pengaju-beasiswa', compact('listPengajuan','namaBeasiswa'));
@@ -37,6 +48,17 @@ class PengajuanBeasiswaController extends Controller
     public function create(string $id)
     {
         $user = Auth::user();
+        
+        // Cek apakah user adalah ketua jurusan
+        $reviewer = Reviewer::where('user_id', $user->id)->first();
+        $isKajur = $reviewer && $reviewer->role_id == 2;
+        
+        if ($isKajur) {
+            // Jika ketua jurusan, arahkan ke halaman pemilihan mahasiswa
+            return $this->createForKajur($id);
+        }
+        
+        // Jika mahasiswa, lanjutkan seperti biasa
         $mhs = $this->getMahasiswaByUserId($user->id);
         $prodi = $this->getProdiById($mhs->prodi_id);
         $jurusan = $this->getJurusanById($prodi->jurusan_id);
@@ -50,7 +72,125 @@ class PengajuanBeasiswaController extends Controller
             'jurusan' => $jurusan,
             'prodi' => $prodi,
             'dokumen' => $dokumen,
+            'isKajur' => false,
         ]);
+    }
+    
+    /**
+     * Form untuk ketua jurusan memilih mahasiswa
+     */
+    public function createForKajur(string $id)
+    {
+        $user = Auth::user();
+        $reviewer = Reviewer::where('user_id', $user->id)->first();
+        
+        if (!$reviewer || $reviewer->role_id != 2) {
+            return redirect()->back()->with('error', 'Anda tidak memiliki akses ke halaman ini.');
+        }
+        
+        // Ambil jurusan dari kajur
+        $jurusan = Jurusan::where('kajur_id', $user->id)->first();
+        
+        if (!$jurusan) {
+            return redirect()->back()->with('error', 'Jurusan tidak ditemukan.');
+        }
+        
+        // Ambil semua mahasiswa di jurusan tersebut dengan eager loading
+        $mahasiswaList = Mahasiswa::with(['user', 'prodi'])
+            ->join('prodi', 'mahasiswa.prodi_id', '=', 'prodi.id')
+            ->where('prodi.jurusan_id', $jurusan->id)
+            ->select('mahasiswa.*')
+            ->get();
+        
+        $dokumen = $this->getDokumenByBeasiswaId($id);
+        
+        return view('pages.Beasiswa.pengajuan-beasiswa-kajur', [
+            'user' => $user,
+            'beasiswa_id' => $id,
+            'jurusan' => $jurusan,
+            'mahasiswaList' => $mahasiswaList,
+            'dokumen' => $dokumen,
+        ]);
+    }
+    
+    /**
+     * Store pengajuan beasiswa oleh ketua jurusan untuk mahasiswa
+     */
+    public function storeForKajur(Request $request, string $id)
+    {
+        $user = Auth::user();
+        $reviewer = Reviewer::where('user_id', $user->id)->first();
+        
+        if (!$reviewer || $reviewer->role_id != 2) {
+            return redirect()->back()->with('error', 'Anda tidak memiliki akses untuk melakukan aksi ini.');
+        }
+        
+        // Validasi NIM yang dipilih
+        $request->validate([
+            'nim' => 'required|exists:mahasiswa,nim'
+        ]);
+        
+        $nim = $request->input('nim');
+        $dokumen = $this->getBeasiswaDocuments($id);
+        
+        $rules = $this->buildValidationRules($dokumen);
+        $request->validate($rules);
+        
+        // Cek apakah mahasiswa tersebut dari jurusan yang benar
+        $jurusan = Jurusan::where('kajur_id', $user->id)->first();
+        $mahasiswa = Mahasiswa::join('prodi', 'mahasiswa.prodi_id', '=', 'prodi.id')
+            ->where('mahasiswa.nim', $nim)
+            ->where('prodi.jurusan_id', $jurusan->id)
+            ->select('mahasiswa.*')
+            ->first();
+            
+        if (!$mahasiswa) {
+            return redirect()->back()->with('error', 'Mahasiswa tidak ditemukan di jurusan Anda.');
+        }
+        
+        // Cek apakah mahasiswa sudah punya beasiswa aktif
+        $beasiswaController = new BeasiswaController();
+        $beasiswa = $beasiswaController->getBeasiswaDataBaseOnBeasiswaId($id);
+        
+        if (!$beasiswa->allow_multiple && $mahasiswa->status_beasiswa == 1) {
+            return redirect()->back()
+                ->with('error', 'Mahasiswa ini sudah memiliki beasiswa aktif (' . $mahasiswa->nama_beasiswa_saat_ini . '). Beasiswa ini tidak mengizinkan beasiswa ganda.');
+        }
+        
+        if ($this->hasExistingSubmission($nim)) {
+            return redirect()->back()
+                ->with('error', 'Mahasiswa ini sudah memiliki pengajuan beasiswa aktif.');
+        }
+        
+        DB::beginTransaction();
+        
+        try {
+            $pengajuanBeasiswa = $this->createPengajuanBeasiswa($nim, $id);
+            
+            Log::info("Created PengajuanBeasiswa by Kajur", [
+                'id' => $pengajuanBeasiswa->id,
+                'nim' => $pengajuanBeasiswa->nim,
+                'beasiswa_id' => $pengajuanBeasiswa->beasiswa_id,
+                'user_id_pengaju' => $pengajuanBeasiswa->user_id_pengaju
+            ]);
+            
+            if (!$pengajuanBeasiswa->id) {
+                throw new \Exception("Failed to generate Pengajuan ID");
+            }
+            
+            $this->processDokumenUpload($request, $dokumen, $pengajuanBeasiswa->id);
+            $this->sendSubmissionEmails($nim, $id);
+            
+            DB::commit();
+            
+            return redirect()->route('pengajuan.list-pengajuan', ['id' => $id])
+                ->with('success', 'Pengajuan Beasiswa untuk mahasiswa berhasil dibuat.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error("Error creating Pengajuan Beasiswa by Kajur: {$e->getMessage()}", ['exception' => $e]);
+            return redirect()->back()
+                ->with('error', 'Gagal membuat pengajuan beasiswa. Silakan coba lagi. ' . $e->getMessage());
+        }
     }
     /**
      * Store a newly created Pengajuan Beasiswa.
@@ -331,23 +471,20 @@ class PengajuanBeasiswaController extends Controller
         $dataPengajuan->komentar = $validatedData['reviewerComment'] ?? null;
 
         if ($role_id == 1) {
-            $reviseStatus = 3;
-            $approveStatus = 4;
-        } elseif ($role_id == 2) {
             $reviseStatus = 5;
             $approveStatus = 6;
-        } elseif ($role_id == 3) {
+        } elseif ($role_id == 2) {
+            $reviseStatus = 3;
+            $approveStatus = 4;
+        } elseif ($role_id == 4) {
             $reviseStatus = 7;
             $approveStatus = 8;
-        } elseif ($role_id == 4) {
-            $reviseStatus = 9;
-            $approveStatus = 10;
         }
 
         // Update status based button input
         switch ($request->input('action')) {
             case 'reject':
-                $dataPengajuan->status = 11;
+                $dataPengajuan->status = 9;
                 break;
             case 'revise':
                 $dataPengajuan->status = $reviseStatus;
@@ -376,25 +513,28 @@ class PengajuanBeasiswaController extends Controller
         return redirect()->route('pengajuan.list-pengajuan')->with('msg', 'Pengajuan mu telah di batalkan');
     }
 
-    private function getListPengajuan($user)
+    private function getListPengajuan($user, $request = null)
     {
         $mhs = Mahasiswa::where('user_id', $user->id)->first();
 
         if ($mhs) {
-            return $this->getMahasiswaPengajuan($mhs->nim);
+            Log::info('User is Mahasiswa, calling getMahasiswaPengajuan');
+            return $this->getMahasiswaPengajuan($mhs->nim, $request);
         }
 
         $reviewer = Reviewer::where('user_id', $user->id)->first();
         if ($reviewer->role_id === 2) {
-            return $this->getKajurPengajuan($user->id);
+            Log::info('User is Kajur, calling getKajurPengajuan');
+            return $this->getKajurPengajuan($user->id, $request);
         }
 
-        return $this->getStaffPengajuan($reviewer->role_id);
+        Log::info('User is Staff/Admin, calling getStaffPengajuan with role_id: ' . $reviewer->role_id);
+        return $this->getStaffPengajuan($reviewer->role_id, $request);
     }
 
-    private function getMahasiswaPengajuan($nim)
+    private function getMahasiswaPengajuan($nim, $request = null)
     {
-        return PengajuanBeasiswa::join('beasiswa', 'pengajuan_beasiswa.beasiswa_id', '=', 'beasiswa.id')
+        $query = PengajuanBeasiswa::join('beasiswa', 'pengajuan_beasiswa.beasiswa_id', '=', 'beasiswa.id')
             ->join('mahasiswa', 'pengajuan_beasiswa.nim', '=', 'mahasiswa.nim')
             ->join('users', 'mahasiswa.user_id', '=', 'users.id')
             ->join('kode_status', 'kode_status.id', '=', 'pengajuan_beasiswa.status')
@@ -402,18 +542,47 @@ class PengajuanBeasiswaController extends Controller
                 'beasiswa.nama_beasiswa',
                 'beasiswa.sumber',
                 'users.nama_depan',
+                'users.nama_belakang',
                 'pengajuan_beasiswa.status',
                 'pengajuan_beasiswa.tanggal_pengajuan',
                 'kode_status.isi_status',
                 'pengajuan_beasiswa.id as id_pengajuan'
             )
-            ->where('mahasiswa.nim', $nim)
-            ->get();
+            ->where('mahasiswa.nim', $nim);
+
+        // Apply filters if request exists
+        if ($request) {
+            if ($request->filled('nama_beasiswa')) {
+                $query->where('beasiswa.nama_beasiswa', $request->nama_beasiswa);
+            }
+            if ($request->filled('tanggal_pengajuan')) {
+                $query->whereDate('pengajuan_beasiswa.tanggal_pengajuan', $request->tanggal_pengajuan);
+            }
+            if ($request->filled('tanggal_dari')) {
+                $query->whereDate('pengajuan_beasiswa.tanggal_pengajuan', '>=', $request->tanggal_dari);
+            }
+            if ($request->filled('tanggal_sampai')) {
+                $query->whereDate('pengajuan_beasiswa.tanggal_pengajuan', '<=', $request->tanggal_sampai);
+            }
+            // Filter berdasarkan status
+            if ($request->filled('status')) {
+                $statusFilter = $request->status;
+                if ($statusFilter === 'diproses') {
+                    $query->whereIn('pengajuan_beasiswa.status', [1, 2, 3, 4, 5, 6, 7]);
+                } elseif ($statusFilter === 'diterima') {
+                    $query->where('pengajuan_beasiswa.status', 8);
+                } elseif ($statusFilter === 'ditolak') {
+                    $query->where('pengajuan_beasiswa.status', 9);
+                }
+            }
+        }
+
+        return $query->orderBy('pengajuan_beasiswa.tanggal_pengajuan', 'desc')->get();
     }
 
-    private function getKajurPengajuan($userId)
+    private function getKajurPengajuan($userId, $request = null)
     {
-        return PengajuanBeasiswa::join('beasiswa', 'pengajuan_beasiswa.beasiswa_id', '=', 'beasiswa.id')
+        $query = PengajuanBeasiswa::join('beasiswa', 'pengajuan_beasiswa.beasiswa_id', '=', 'beasiswa.id')
             ->join('mahasiswa', 'pengajuan_beasiswa.nim', '=', 'mahasiswa.nim')
             ->join('prodi', 'prodi.id', '=', 'mahasiswa.prodi_id')
             ->join('jurusan', 'jurusan.id', '=', 'prodi.jurusan_id')
@@ -422,46 +591,115 @@ class PengajuanBeasiswaController extends Controller
                 'beasiswa.nama_beasiswa',
                 'beasiswa.sumber',
                 'users.nama_depan',
+                'users.nama_belakang',
                 'pengajuan_beasiswa.status',
                 'pengajuan_beasiswa.tanggal_pengajuan',
                 'pengajuan_beasiswa.id as id_pengajuan'
             )
             ->where('jurusan.kajur_id', $userId)
-            ->whereIn('pengajuan_beasiswa.status', [4, 5])
-            ->get();
+            ->whereIn('pengajuan_beasiswa.status', [1, 2, 3]);
+
+        // Apply filters if request exists
+        if ($request) {
+            if ($request->filled('nama_beasiswa')) {
+                $query->where('beasiswa.nama_beasiswa', $request->nama_beasiswa);
+            }
+            if ($request->filled('tanggal_pengajuan')) {
+                $query->whereDate('pengajuan_beasiswa.tanggal_pengajuan', $request->tanggal_pengajuan);
+            }
+            if ($request->filled('tanggal_dari')) {
+                $query->whereDate('pengajuan_beasiswa.tanggal_pengajuan', '>=', $request->tanggal_dari);
+            }
+            if ($request->filled('tanggal_sampai')) {
+                $query->whereDate('pengajuan_beasiswa.tanggal_pengajuan', '<=', $request->tanggal_sampai);
+            }
+            // Filter berdasarkan status
+            if ($request->filled('status')) {
+                $statusFilter = $request->status;
+                if ($statusFilter === 'diproses') {
+                    $query->whereIn('pengajuan_beasiswa.status', [1, 2, 3, 4, 5, 6, 7]);
+                } elseif ($statusFilter === 'diterima') {
+                    $query->where('pengajuan_beasiswa.status', 8);
+                } elseif ($statusFilter === 'ditolak') {
+                    $query->where('pengajuan_beasiswa.status', 9);
+                }
+            }
+        }
+
+        return $query->orderBy('pengajuan_beasiswa.tanggal_pengajuan', 'desc')->get();
     }
 
     // =================================================================
     // == FUNGSI YANG DIPERBARUI ADA DI BAWAH INI ==
     // =================================================================
-    private function getStaffPengajuan($roleId)
+    private function getStaffPengajuan($roleId, $request = null)
     {
         // 1. Mulai membangun query dasar tanpa filter status
         $query = PengajuanBeasiswa::join('beasiswa', 'pengajuan_beasiswa.beasiswa_id', '=', 'beasiswa.id')
             ->join('mahasiswa', 'pengajuan_beasiswa.nim', '=', 'mahasiswa.nim')
             ->join('users', 'mahasiswa.user_id', '=', 'users.id')
             ->select(
-                'beasiswa.*',
+                'beasiswa.nama_beasiswa',
+                'beasiswa.sumber',
                 'users.nama_depan',
+                'users.nama_belakang',
                 'pengajuan_beasiswa.status',
                 'pengajuan_beasiswa.tanggal_pengajuan',
                 'pengajuan_beasiswa.id as id_pengajuan'
             );
 
-        // 2. Tambahkan kondisi: terapkan filter status HANYA JIKA roleId BUKAN 4 (WD3)
-        if ($roleId != 4) {
-            $statusCode = match ($roleId) {
-                1 => [1, 2, 3],       // Staff Kemahasiswaan
-                3 => [6, 7],           // Koordinator Layanan Eksternal
-                default => [8, 9],     // Role lain (selain 1, 3, dan 4)
-            };
-            $query->whereIn('pengajuan_beasiswa.status', $statusCode);
-        }
-        // Jika role_id adalah 4, kondisi di atas akan dilewati,
-        // sehingga tidak ada filter 'whereIn' yang diterapkan.
+        // 2. Tidak ada filter status - Admin dan WD3 melihat semua pengajuan
+        // Role_id 1 (Staff Kemahasiswaan/Admin) dan role_id 4 (WD3) melihat semua status
 
-        // 3. Eksekusi query dan kembalikan hasilnya
-        return $query->get();
+        // 3. Terapkan filter lanjutan jika ada request
+        if ($request) {
+            // Filter berdasarkan nama beasiswa
+            if ($request->filled('nama_beasiswa')) {
+                $namaBeasiswaFilter = $request->nama_beasiswa;
+                Log::info('Applying beasiswa filter: ' . $namaBeasiswaFilter);
+                $query->where('beasiswa.nama_beasiswa', $namaBeasiswaFilter);
+            }
+
+            // Filter berdasarkan tanggal pengajuan spesifik
+            if ($request->filled('tanggal_pengajuan')) {
+                Log::info('Applying date filter: ' . $request->tanggal_pengajuan);
+                $query->whereDate('pengajuan_beasiswa.tanggal_pengajuan', $request->tanggal_pengajuan);
+            }
+
+            // Filter berdasarkan rentang tanggal
+            if ($request->filled('tanggal_dari')) {
+                Log::info('Applying date from filter: ' . $request->tanggal_dari);
+                $query->whereDate('pengajuan_beasiswa.tanggal_pengajuan', '>=', $request->tanggal_dari);
+            }
+
+            if ($request->filled('tanggal_sampai')) {
+                Log::info('Applying date to filter: ' . $request->tanggal_sampai);
+                $query->whereDate('pengajuan_beasiswa.tanggal_pengajuan', '<=', $request->tanggal_sampai);
+            }
+            
+            // Filter berdasarkan status
+            if ($request->filled('status')) {
+                $statusFilter = $request->status;
+                Log::info('Applying status filter: ' . $statusFilter);
+                if ($statusFilter === 'diproses') {
+                    $query->whereIn('pengajuan_beasiswa.status', [1, 2, 3, 4, 5, 6, 7]);
+                } elseif ($statusFilter === 'diterima') {
+                    $query->where('pengajuan_beasiswa.status', 8);
+                } elseif ($statusFilter === 'ditolak') {
+                    $query->where('pengajuan_beasiswa.status', 9);
+                }
+            }
+        }
+
+        // 4. Eksekusi query dan kembalikan hasilnya
+        $result = $query->orderBy('pengajuan_beasiswa.tanggal_pengajuan', 'desc')->get();
+        
+        Log::info('Query result count: ' . $result->count());
+        if ($result->count() > 0) {
+            Log::info('First result: ', $result->first()->toArray());
+        }
+        
+        return $result;
     }
     // =================================================================
     // == AKHIR DARI FUNGSI YANG DIPERBARUI ==
@@ -515,7 +753,7 @@ class PengajuanBeasiswaController extends Controller
 
     private function hasExistingSubmission(string $nim): bool
     {
-        return PengajuanBeasiswa::where('nim', $nim)->where('status', '!=', 11)->exists();
+        return PengajuanBeasiswa::where('nim', $nim)->where('status', '!=', 9)->exists();
     }
 
     private function createPengajuanBeasiswa(string $nim, string $beasiswaId)
@@ -523,6 +761,7 @@ class PengajuanBeasiswaController extends Controller
         return PengajuanBeasiswa::create([
             'nim' => $nim,
             'beasiswa_id' => $beasiswaId,
+            'user_id_pengaju' => Auth::id(), // Menyimpan siapa yang mengajukan
             'tanggal_pengajuan' => now(),
             'status' => 1
         ]);
@@ -587,7 +826,7 @@ class PengajuanBeasiswaController extends Controller
 
     private function getPengajuanDokumen(string $pengajuanId)
     {
-        return PengajuanDokumen::where('id_pengajuan_beasiswa', $pengajuanId)->orderBy('id', 'asc')->get();
+        return PengajuanDokumen::where('id_pengajuan_beasiswa', $pengajuanId)->orderBy('created_at', 'asc')->get();
     }
 
     private function updateDokumen(Request $request, array $dokumen, $dokumenPengajuan)
@@ -654,6 +893,55 @@ class PengajuanBeasiswaController extends Controller
     private function getBeasiswaIdByPengajuan(string $pengajuanId)
     {
         return PengajuanBeasiswa::findOrFail($pengajuanId)->beasiswa_id;
+    }
+
+    public function exportPengajuan(Request $request)
+    {
+        $user = Auth::user();
+        
+        // Get filtered data using the same method as list view
+        $listPengajuan = $this->getListPengajuan($user, $request);
+        
+        // Check if there's data to export
+        if ($listPengajuan->isEmpty()) {
+            return back()->with('error', 'Tidak ada data untuk di-export.');
+        }
+        
+        // Map data to Excel format
+        $exportData = $listPengajuan->map(function ($item, $index) {
+            return [
+                'No' => $index + 1,
+                'NIM' => $item->nim ?? '-',
+                'Nama Pengaju' => ($item->nama_depan ?? '') . ' ' . ($item->nama_belakang ?? ''),
+                'Nama Beasiswa' => $item->nama_beasiswa ?? '-',
+                'Penyelenggara' => $item->sumber ?? '-',
+                'Tanggal Pengajuan' => $item->tanggal_pengajuan ? Carbon::parse($item->tanggal_pengajuan)->format('d-m-Y') : '-',
+                'Status' => $item->isi_status ?? $this->getStatusText($item->status),
+            ];
+        });
+        
+        // Generate filename with timestamp
+        $filename = 'Daftar_Pengajuan_Beasiswa_' . Carbon::now()->format('Y-m-d_His') . '.xlsx';
+        
+        // Export to Excel
+        return (new FastExcel($exportData))->download($filename);
+    }
+    
+    private function getStatusText($statusCode)
+    {
+        $statusMap = [
+            1 => 'Diajukan',
+            2 => 'Diproses oleh Ketua Jurusan',
+            3 => 'Direvisi pada Ketua Jurusan',
+            4 => 'Diproses oleh Staff Kemahasiswaan',
+            5 => 'Direvisi pada Pengecekan Staff Kemahasiswaan',
+            6 => 'Diproses oleh Wakil Direktur 3',
+            7 => 'Direvisi pada Wakil Direktur 3',
+            8 => 'Diterima',
+            9 => 'Ditolak',
+        ];
+        
+        return $statusMap[$statusCode] ?? 'Status Tidak Diketahui';
     }
 
 }

@@ -113,7 +113,15 @@
     <!-- Menambahkan class sidebar-container dan sidebar-list untuk kontrol yang lebih baik -->
     <div class="sidebar-container">
         <ul class="sidebar-list flex flex-col pl-0 mb-0">
-        @if (session()->has('auth') && session('auth')['role'] === 'reviewer')
+        @php
+            // Cek apakah user adalah ketua jurusan (role_id = 2)
+            $isKajur = false;
+            if (session()->has('auth') && session('auth')['role'] === 'reviewer') {
+                $reviewer = \App\Models\Reviewer::where('user_id', auth()->id())->first();
+                $isKajur = $reviewer && $reviewer->role_id == 2;
+            }
+        @endphp
+        @if (session()->has('auth') && session('auth')['role'] === 'reviewer' && !$isKajur)
             <li class="mt-0.5 w-full">
                 <a id="dashboard-link" class="sidebar-link py-2.7 text-sm ease-nav-brand my-0 mx-4 flex items-center whitespace-nowrap px-4 rounded-lg transition duration-300 hover:border hover:bg-white hover:shadow-xl"
                 href="/dashboard">
@@ -126,13 +134,13 @@
         @endif
 
         <li class="mt-0.5 w-full">
-        @if (session()->has('auth') && session('auth')['role'] === 'reviewer')
+        @if (session()->has('auth') && session('auth')['role'] === 'reviewer' && !$isKajur)
             <a id="beasiswa-link" class="sidebar-link py-2.7 text-sm ease-nav-brand my-0 mx-4 flex items-center whitespace-nowrap px-4 rounded-lg transition duration-300 hover:border hover:bg-white hover:shadow-xl"
             href="/list-beasiswa-staff">
-            @else
+        @else
             <a id="beasiswa-link" class="sidebar-link py-2.7 text-sm ease-nav-brand my-0 mx-4 flex items-center whitespace-nowrap px-4 rounded-lg transition duration-300 hover:border hover:bg-white hover:shadow-xl"
             href="/beasiswa">
-            @endif
+        @endif
                 <div class="icon shadow-soft-2xl mr-2 flex h-8 w-8 items-center justify-center rounded-lg bg-white bg-center stroke-0 text-center xl:p-2.5">
                     <i class="fas fa-graduation-cap text-slate-800"></i>
                 </div>
@@ -161,6 +169,19 @@
                 <span class="ml-1 duration-300 opacity-100 pointer-events-none ease-soft">Pengumuman</span>
             </a>
         </li>
+
+        @if (session()->has('auth') && session('auth')['role'] === 'reviewer')
+        <li class="mt-0.5 w-full">
+            <a id="history-link" class="sidebar-link py-2.7 text-sm ease-nav-brand my-0 mx-4 flex items-center whitespace-nowrap px-4 rounded-lg transition duration-300 hover:border hover:bg-white hover:shadow-xl"
+                href="{{ route('history-penerima.index') }}">
+                <div
+                    class="icon shadow-soft-2xl mr-2 flex h-8 w-8 items-center justify-center rounded-lg bg-white bg-center fill-current stroke-0 text-center xl:p-2.5">
+                    <i class="fas fa-history text-slate-800"></i>
+                </div>
+                <span class="ml-1 duration-300 opacity-100 pointer-events-none ease-soft">History Penerima</span>
+            </a>
+        </li>
+        @endif
         @endif
 
         <li class="mt-0.5 w-full">

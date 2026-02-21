@@ -76,15 +76,15 @@ class MaddingController extends Controller
 
         $query->select(
             DB::raw("COALESCE(users.foto, 'default-profile.png') as foto"), // Sediakan path default image Anda
-            DB::raw("COALESCE(users.nama_depan, SPLIT_PART(history_mahasiswa_penerima.nama_mahasiswa, ' ', 1)) as nama_depan"),
+            DB::raw("COALESCE(users.nama_depan, SUBSTRING_INDEX(history_mahasiswa_penerima.nama_mahasiswa, ' ', 1)) as nama_depan"),
             DB::raw("COALESCE(users.nama_belakang,
                         CASE
-                            WHEN POSITION(' ' IN history_mahasiswa_penerima.nama_mahasiswa) > 0
-                            THEN SUBSTRING(history_mahasiswa_penerima.nama_mahasiswa FROM POSITION(' ' IN history_mahasiswa_penerima.nama_mahasiswa) + 1)
+                            WHEN LOCATE(' ', history_mahasiswa_penerima.nama_mahasiswa) > 0
+                            THEN SUBSTRING(history_mahasiswa_penerima.nama_mahasiswa, LOCATE(' ', history_mahasiswa_penerima.nama_mahasiswa) + 1)
                             ELSE ''
                         END) as nama_belakang"),
             // Untuk angkatan, jika NULL dan ingin ditampilkan sebagai 'N/A', cast ke VARCHAR
-            DB::raw("COALESCE(CAST(mahasiswa.angkatan AS VARCHAR), 'N/A') as angkatan"),
+            DB::raw("COALESCE(CAST(mahasiswa.angkatan AS CHAR), 'N/A') as angkatan"),
             'history_mahasiswa_penerima.nama_prodi',
             'history_mahasiswa_penerima.nama_beasiswa',
             'history_mahasiswa_penerima.created_at as tanggal_diterima',

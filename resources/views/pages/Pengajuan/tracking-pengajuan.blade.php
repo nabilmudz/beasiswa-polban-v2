@@ -12,12 +12,12 @@
                     <p class="text-gray-600 mt-1">Application Status Tracking</p>
                 </div>
                 <div class="flex items-center space-x-3">
-                    @if($dataPengajuan->status == 10)
+                    @if($dataPengajuan->status == 8)
                         <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
                             <i class="fas fa-check-circle mr-1.5"></i>
                             Approved
                         </span>
-                    @elseif($dataPengajuan->status == 11)
+                    @elseif($dataPengajuan->status == 9)
                         <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
                             <i class="fas fa-times-circle mr-1.5"></i>
                             Rejected
@@ -45,32 +45,31 @@
                 <h2 class="text-lg font-semibold text-gray-900 mb-6">Application Progress</h2>
 
                 @php
-                    $idStatuses = $dataStatus->pluck('id_status');
-                    $idStatusesArray = $idStatuses->toArray();
-                    $currentIndex = array_search($dataPengajuan->status, $idStatusesArray);
-                    $displayStatuses = [0, 1, 3, 5, 7, 9]; // Only show main statuses
+                    $displayStatuses = [1, 2, 4, 6, 8]; // Diajukan, Ketua Jurusan, Staff Kema, WD3, Diterima
+                    $filteredStatuses = $dataStatus->filter(function($status) use ($displayStatuses) {
+                        return in_array($status->id, $displayStatuses);
+                    })->values();
                 @endphp
 
                 <div class="relative">
-                    @foreach($dataStatus as $index => $step)
-                        @if(in_array($index + 1, $displayStatuses))
+                    @foreach($filteredStatuses as $index => $step)
                             <div class="flex items-start mb-8 last:mb-0 relative">
                                 <!-- Timeline dot -->
                                 <div class="flex-shrink-0 relative z-10">
-                                    @if($dataPengajuan->status == 10)
+                                    @if($dataPengajuan->status == 8)
                                         <div class="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center">
                                             <i class="fas fa-check text-white text-sm"></i>
                                         </div>
-                                    @elseif($dataPengajuan->status == 11)
+                                    @elseif($dataPengajuan->status == 9)
                                         <div class="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center">
                                             <i class="fas fa-times text-white text-sm"></i>
                                         </div>
                                     @else
-                                        @if($index == $dataPengajuan->status - 1)
+                                        @if($step->id == $dataPengajuan->status || ($dataPengajuan->status == 3 && $step->id == 2) || ($dataPengajuan->status == 5 && $step->id == 4) || ($dataPengajuan->status == 7 && $step->id == 6))
                                             <div class="w-10 h-10 rounded-full bg-yellow-500 flex items-center justify-center animate-pulse">
                                                 <i class="fas fa-clock text-white text-sm"></i>
                                             </div>
-                                        @elseif($index < $dataPengajuan->status - 1)
+                                        @elseif($step->id < $dataPengajuan->status)
                                             <div class="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center">
                                                 <i class="fas fa-check text-white text-sm"></i>
                                             </div>
@@ -83,12 +82,10 @@
                                 </div>
 
                                 <!-- Timeline line -->
-                                @if(!$loop->last)
+                                @if($index < $filteredStatuses->count() - 1)
                                     <div class="absolute left-5 top-10 w-0.5 h-16
-                                        @if($dataPengajuan->status == 10 || $dataPengajuan->status == 11 || $index < $dataPengajuan->status - 1)
+                                        @if($dataPengajuan->status == 8 || $dataPengajuan->status == 9 || $step->id < $dataPengajuan->status)
                                             bg-green-300
-                                        @elseif($index == $dataPengajuan->status - 1)
-                                            bg-blue-300
                                         @else
                                             bg-gray-200
                                         @endif">
@@ -98,23 +95,22 @@
                                 <!-- Content -->
                                 <div class="ml-4 min-w-0 flex-1">
                                     <div class="text-sm font-medium text-gray-900">{{ $step->isi_status }}</div>
-                                    @if($dataPengajuan->status == 11)
-
+                                    @if($dataPengajuan->status == 9)
                                         <div class="text-xs text-red-600 mt-1 font-medium">Ditolak</div>
-
-
-                                    @elseif(in_array($dataPengajuan->status, [3, 5, 7, 9]))
-                                        @if($index == ($dataPengajuan->status -1))
-                                            <div class="text-xs text-yellow-600 mt-1 font-medium">Direvisi</div>
-                                        @elseif($index < ($dataPengajuan->status - 2))
+                                    @elseif(in_array($dataPengajuan->status, [3, 5, 7]))
+                                        @if(($dataPengajuan->status == 3 && $step->id == 2) || ($dataPengajuan->status == 5 && $step->id == 4) || ($dataPengajuan->status == 7 && $step->id == 6))
+                                            <div class="text-xs text-yellow-600 mt-1 font-medium">Needs Revision</div>
+                                        @elseif($step->id < $dataPengajuan->status)
                                             <div class="text-xs text-green-600 mt-1">Completed</div>
                                         @else
                                             <div class="text-xs text-gray-500 mt-1">Pending</div>
                                         @endif
+                                    @elseif($dataPengajuan->status == 8)
+                                        <div class="text-xs text-green-600 mt-1">Completed</div>
                                     @else
-                                        @if($index == $dataPengajuan->status - 1)
+                                        @if($step->id == $dataPengajuan->status)
                                             <div class="text-xs text-blue-600 mt-1 font-medium">Current Step</div>
-                                        @elseif($index < $dataPengajuan->status - 1)
+                                        @elseif($step->id < $dataPengajuan->status)
                                             <div class="text-xs text-green-600 mt-1">Completed</div>
                                         @else
                                             <div class="text-xs text-gray-500 mt-1">Pending</div>
@@ -122,13 +118,12 @@
                                     @endif
                                 </div>
                             </div>
-                        @endif
                     @endforeach
                 </div>
             </div>
 
             <!-- Revision Alert -->
-            @if($dataReviewer == null && in_array($dataPengajuan->status, [3, 5, 7, 9]))
+            @if($dataReviewer == null && in_array($dataPengajuan->status, [3, 5, 7]))
                 <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
                     <div class="flex items-start">
                         <i class="fas fa-exclamation-triangle text-amber-500 mt-1 mr-3"></i>

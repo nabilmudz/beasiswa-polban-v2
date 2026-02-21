@@ -21,13 +21,22 @@
 
                 <!-- Filter Controls -->
                 <div class="flex items-center gap-3">
+                    <!-- Export Button -->
+                    <a href="{{ route('pengajuan.export', array_merge(request()->all(), ['status' => request('status')])) }}"
+                       class="inline-flex items-center px-4 py-2 border border-green-500 rounded-lg text-sm font-medium text-green-700 bg-white hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors">
+                        <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        Export Excel
+                    </a>
+
                     <!-- Status Filter -->
                     <div class="relative">
-                        <select id="statusFilter" class="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <select id="statusFilter" onchange="applyStatusFilter(this.value)" class="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                             <option value="">Semua Status</option>
-                            <option value="diproses">Diproses</option>
-                            <option value="diterima">Diterima</option>
-                            <option value="ditolak">Ditolak</option>
+                            <option value="diproses" {{ request('status') == 'diproses' ? 'selected' : '' }}>Diproses</option>
+                            <option value="diterima" {{ request('status') == 'diterima' ? 'selected' : '' }}>Diterima</option>
+                            <option value="ditolak" {{ request('status') == 'ditolak' ? 'selected' : '' }}>Ditolak</option>
                         </select>
                         <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
                             <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -43,12 +52,77 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
                         </svg>
                         Filter Lanjut
+                        @if(request('nama_beasiswa') || request('tanggal_pengajuan') || request('tanggal_dari') || request('tanggal_sampai'))
+                            <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                Aktif
+                            </span>
+                        @endif
                     </button>
+
+                    <!-- Reset Filter Button (shown when filter is active) -->
+                    @if(request('nama_beasiswa') || request('tanggal_pengajuan') || request('tanggal_dari') || request('tanggal_sampai') || request('status'))
+                        <a href="{{ route('pengajuan.list-pengajuan') }}"
+                           class="inline-flex items-center px-4 py-2 border border-red-300 rounded-lg text-sm font-medium text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-colors">
+                            <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                            Hapus Filter
+                        </a>
+                    @endif
 
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Filter Active Notification -->
+    @if(request('nama_beasiswa') || request('tanggal_pengajuan') || request('tanggal_dari') || request('tanggal_sampai') || request('status'))
+        <div class="bg-blue-50 border-b border-blue-200">
+            <div class="px-6 py-3">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <svg class="h-5 w-5 text-blue-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <span class="text-sm text-blue-800 font-medium">Filter aktif:</span>
+                        <div class="ml-2 flex items-center space-x-2">
+                            @if(request('nama_beasiswa'))
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    Beasiswa: {{ request('nama_beasiswa') }}
+                                </span>
+                            @endif
+                            @if(request('status'))
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    Status: {{ ucfirst(request('status')) }}
+                                </span>
+                            @endif
+                            @if(request('tanggal_pengajuan'))
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    Tanggal: {{ \Carbon\Carbon::parse(request('tanggal_pengajuan'))->format('d M Y') }}
+                                </span>
+                            @endif
+                            @if(request('tanggal_dari') && request('tanggal_sampai'))
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    Periode: {{ \Carbon\Carbon::parse(request('tanggal_dari'))->format('d M Y') }} - {{ \Carbon\Carbon::parse(request('tanggal_sampai'))->format('d M Y') }}
+                                </span>
+                            @elseif(request('tanggal_dari'))
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    Dari: {{ \Carbon\Carbon::parse(request('tanggal_dari'))->format('d M Y') }}
+                                </span>
+                            @elseif(request('tanggal_sampai'))
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    Sampai: {{ \Carbon\Carbon::parse(request('tanggal_sampai'))->format('d M Y') }}
+                                </span>
+                            @endif
+                        </div>
+                    </div>
+                    <span class="text-sm text-blue-700">
+                        {{ $listPengajuan->count() }} hasil ditemukan
+                    </span>
+                </div>
+            </div>
+        </div>
+    @endif
 
     <!-- Main Content -->
     <div class="flex-1 bg-gray-50">
@@ -133,21 +207,21 @@
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        @if ($pengajuan->status <= 9)
+                                        @if ($pengajuan->status < 8)
                                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800" data-status="diproses">
                                                 <svg class="w-2 h-2 mr-1" fill="currentColor" viewBox="0 0 8 8">
                                                     <circle cx="4" cy="4" r="3"/>
                                                 </svg>
                                                 Diproses
                                             </span>
-                                        @elseif ($pengajuan->status == 10)
+                                        @elseif ($pengajuan->status == 8)
                                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800" data-status="diterima">
                                                 <svg class="w-2 h-2 mr-1" fill="currentColor" viewBox="0 0 8 8">
                                                     <circle cx="4" cy="4" r="3"/>
                                                 </svg>
                                                 Diterima
                                             </span>
-                                        @else
+                                        @elseif ($pengajuan->status == 9)
                                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800" data-status="ditolak">
                                                 <svg class="w-2 h-2 mr-1" fill="currentColor" viewBox="0 0 8 8">
                                                     <circle cx="4" cy="4" r="3"/>
@@ -189,7 +263,7 @@
     <!-- Advanced Filter Modal -->
     <div id="filterModal" class="fixed inset-0 z-50 overflow-y-auto hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
         <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div onclick="hidePopup()"
+            <div onclick="hideFilterModal()"
                 class="fixed inset-0 bg-white bg-opacity-75 backdrop-blur-sm transition-opacity"
                 aria-hidden="true">
             </div>
@@ -267,6 +341,17 @@
     </div>
 
     <script>
+        // Apply status filter to backend
+        function applyStatusFilter(status) {
+            const url = new URL(window.location.href);
+            if (status) {
+                url.searchParams.set('status', status);
+            } else {
+                url.searchParams.delete('status');
+            }
+            window.location.href = url.toString();
+        }
+
         // Search functionality
         document.getElementById('searchInput').addEventListener('input', function(e) {
             const searchTerm = e.target.value.toLowerCase();
@@ -319,10 +404,8 @@
         }
 
         function resetFilters() {
-            document.getElementById('nama_beasiswa').value = '';
-            document.getElementById('tanggal_pengajuan').value = '';
-            document.getElementById('tanggal_dari').value = '';
-            document.getElementById('tanggal_sampai').value = '';
+            // Redirect ke halaman tanpa parameter filter
+            window.location.href = "{{ route('pengajuan.list-pengajuan') }}";
         }
 
         // Close modal on Escape key

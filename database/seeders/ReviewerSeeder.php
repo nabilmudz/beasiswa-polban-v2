@@ -24,13 +24,6 @@ class ReviewerSeeder extends Seeder
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
-            [
-                'user_id' => 4,
-                'nip' => 'NIP' . rand(1000000000, 9999999999),
-                'role_id' => 3,
-                'created_at' => now(),
-                'updated_at' => now()
-            ],
             [   'user_id' => 5,
                 'nip' => 'NIP' . rand(1000000000, 9999999999),
                 'role_id' => 2,

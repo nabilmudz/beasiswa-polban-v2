@@ -15,6 +15,7 @@ use App\Models\PengajuanBeasiswa;
 use App\Models\PosterBeasiswa;
 use App\Models\Prodi;
 use App\Models\LinkBeasiswa;
+use App\Models\Reviewer;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -136,7 +137,9 @@ class BeasiswaController extends Controller
 
     public function getDetailBeasiswaEksternal($id)
     {
-        $beasiswa = Beasiswa::findOrFail($id);
+        // Ambil beasiswa berdasarkan ID
+        $beasiswa = Beasiswa::with(['syaratBeasiswa', 'jenjangPendidikan', 'benefitBeasiswa', 'syaratDokumen', 'posterBeasiswa'])
+            ->findOrFail($id);
         $jurusan = Jurusan::all();
          // Ambil data syarat, jenjang, benefit, dokumen, dan poster
         $syarat = $beasiswa->syaratBeasiswa->pluck('syarat')->toArray();
@@ -148,6 +151,7 @@ class BeasiswaController extends Controller
         // Default value untuk status pengajuan dan mahasiswa
         $checkPengajuan = false;
         $mhsNIM = null;
+        $isKajur = false;
 
         // Cek apakah pengguna sudah login
         if (Auth::check()) {
@@ -156,6 +160,10 @@ class BeasiswaController extends Controller
 
             // Ambil data mahasiswa berdasarkan user_id
             $mhsNIM = Mahasiswa::where('user_id', $user->id)->first();
+            
+            // Cek apakah user adalah ketua jurusan
+            $reviewer = Reviewer::where('user_id', $user->id)->first();
+            $isKajur = $reviewer && $reviewer->role_id == 2;
 
             // Cek apakah mahasiswa sudah mengajukan beasiswa ini
             $checkPengajuan = $mhsNIM ? PengajuanBeasiswa::where('nim', $mhsNIM->nim)
@@ -171,7 +179,7 @@ class BeasiswaController extends Controller
         }
 
         // Return view dengan data yang sudah dipersiapkan
-        return view('pages.Beasiswa.detail-beasiswa', [
+        return view('pages.Beasiswa.detail-beasiswa-eksternal', [
             'beasiswa' => $beasiswa,
             'id' => $id,
             'syarat' => $syarat,
@@ -180,9 +188,9 @@ class BeasiswaController extends Controller
             'dokumen' => $dokumen,
             'poster' => $poster,
             'isMengajukan' => $checkPengajuan,
-            'isMhs' => $mhsNIM
+            'isMhs' => $mhsNIM,
+            'isKajur' => $isKajur
         ]);
-        return view('pages.Beasiswa.detail-beasiswa-eksternal', compact('beasiswa', 'jurusan'));
     }
 
 
@@ -1082,5 +1090,76 @@ class BeasiswaController extends Controller
         }
 
         return false;
+    }
+
+    /**
+     * API: Get all beasiswa with pagination and filters
+     */
+    public function apiIndex(Request $request)
+    {
+        try {
+            $query = $this->buildBeasiswaQuery($request);
+            
+            // Include relationships
+            $query->with([
+                'syaratBeasiswa',
+                'benefitBeasiswa',
+                'posterBeasiswa',
+                'linkBeasiswa',
+                'syaratDokumen'
+            ]);
+
+            // Paginate results (default 15 per page)
+            $perPage = $request->input('per_page', 15);
+            $beasiswa = $query->paginate($perPage);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Data beasiswa berhasil diambil',
+                'data' => $beasiswa
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil data beasiswa',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * API: Get single beasiswa by ID
+     */
+    public function apiShow($id)
+    {
+        try {
+            $beasiswa = Beasiswa::with([
+                'syaratBeasiswa',
+                'benefitBeasiswa',
+                'posterBeasiswa',
+                'linkBeasiswa',
+                'syaratDokumen'
+            ])->findOrFail($id);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Detail beasiswa berhasil diambil',
+                'data' => $beasiswa
+            ], 200);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Beasiswa tidak ditemukan',
+                'error' => 'Beasiswa dengan ID tersebut tidak ada'
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil detail beasiswa',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 }

@@ -74,6 +74,16 @@
                                     </svg>
                                 </a>
                             </div>
+                        @elseif (isset($isKajur) && $isKajur && $status === 'Berlangsung')
+                            <div class="pt-2">
+                                <a href="{{ route('pengajuan.create-kajur',['id'=> $id]) }}"
+                                   class="inline-flex items-center justify-center px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                                    <span>Ajukan untuk Mahasiswa</span>
+                                    <svg class="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                    </svg>
+                                </a>
+                            </div>
                         @endif
                     </div>
                 </div>

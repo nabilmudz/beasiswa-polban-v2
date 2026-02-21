@@ -39,6 +39,11 @@ class Mahasiswa extends Model
         return $this->belongsTo(User::class, 'user_id');
     }
 
+    public function prodi()
+    {
+        return $this->belongsTo(Prodi::class, 'prodi_id');
+    }
+
     // Model Mahasiswa
     public function penerimaBeasiswa()
     {

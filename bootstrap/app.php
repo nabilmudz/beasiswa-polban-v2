@@ -13,6 +13,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
+            'jwt.auth' => \App\Http\Middleware\ValidateJwt::class,
             'check.role' => \App\Http\Middleware\RoleMiddleware::class,
             'not.kajur' => \App\Http\Middleware\CheckNotKajur::class
         ]);

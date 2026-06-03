@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\BeasiswaController;
+use App\Http\Controllers\Api\DashboardApiController;
 
 /*
 |--------------------------------------------------------------------------
@@ -26,4 +27,14 @@ Route::prefix('beasiswa')->group(function () {
     
     // Get beasiswa by ID
     Route::get('/{id}', [BeasiswaController::class, 'apiShow']);
+});
+
+Route::get('/health', [DashboardApiController::class, 'health']);
+
+Route::middleware('jwt.auth')->group(function () {
+    Route::get('/submissions',   [DashboardApiController::class, 'submissions']);
+});
+
+Route::middleware('jwt.auth:STAFF,WD3,KLI')->group(function () {
+    Route::get('/submissions/pending', [DashboardApiController::class, 'submissionsPending']);
 });

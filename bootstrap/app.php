@@ -14,7 +14,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
             'check.role' => \App\Http\Middleware\RoleMiddleware::class,
-            'not.kajur' => \App\Http\Middleware\CheckNotKajur::class
+            'not.kajur' => \App\Http\Middleware\CheckNotKajur::class,
+            'jwt.auth' => \App\Http\Middleware\ValidateJwt::class
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

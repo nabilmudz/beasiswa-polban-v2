@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\BeasiswaController;
+use App\Http\Controllers\Api\DashboardApiController;
 
 /*
 |--------------------------------------------------------------------------
@@ -26,4 +27,10 @@ Route::prefix('beasiswa')->group(function () {
     
     // Get beasiswa by ID
     Route::get('/{id}', [BeasiswaController::class, 'apiShow']);
+});
+
+// API untuk Dashboard
+Route::prefix('dashboard')->group(function () {
+    Route::get('/timelines', [DashboardApiController::class, 'timelines']);
+    Route::get('/opportunities', [DashboardApiController::class, 'opportunities']);
 });

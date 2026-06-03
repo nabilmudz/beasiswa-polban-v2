@@ -76,11 +76,11 @@ class MaddingController extends Controller
 
         $query->select(
             DB::raw("COALESCE(users.foto, 'default-profile.png') as foto"), // Sediakan path default image Anda
-            DB::raw("COALESCE(users.nama_depan, SUBSTRING_INDEX(history_mahasiswa_penerima.nama_mahasiswa, ' ', 1)) as nama_depan"),
+            DB::raw("COALESCE(users.nama_depan, SPLIT_PART(history_mahasiswa_penerima.nama_mahasiswa, ' ', 1)) as nama_depan"),
             DB::raw("COALESCE(users.nama_belakang,
                         CASE
-                            WHEN LOCATE(' ', history_mahasiswa_penerima.nama_mahasiswa) > 0
-                            THEN SUBSTRING(history_mahasiswa_penerima.nama_mahasiswa, LOCATE(' ', history_mahasiswa_penerima.nama_mahasiswa) + 1)
+                            WHEN POSITION(' ' IN history_mahasiswa_penerima.nama_mahasiswa) > 0
+                            THEN SUBSTRING(history_mahasiswa_penerima.nama_mahasiswa, POSITION(' ' IN history_mahasiswa_penerima.nama_mahasiswa) + 1)
                             ELSE ''
                         END) as nama_belakang"),
             // Untuk angkatan, jika NULL dan ingin ditampilkan sebagai 'N/A', cast ke VARCHAR
@@ -106,7 +106,7 @@ class MaddingController extends Controller
                 'poster_beasiswa.link_poster', 'beasiswa.id', 'beasiswa.nama_beasiswa', 'beasiswa.deskripsi',
                 'beasiswa.tipe_beasiswa', 'beasiswa.jenis_beasiswa', 'beasiswa.kuota', 'beasiswa.sumber',
                 'beasiswa.tanggal_mulai', 'beasiswa.tanggal_berakhir',
-                DB::raw("COALESCE(CONCAT('{', GROUP_CONCAT(CONCAT('\"', jenjang_pendidikan.jenjang, '\"')), '}'), '{\"All Jenjang Pendidikan\"}') AS jenjang_list")
+                DB::raw("COALESCE(CONCAT('{', STRING_AGG(CONCAT('\"', jenjang_pendidikan.jenjang, '\"'), ','), '}'), '{\"All Jenjang Pendidikan\"}') AS jenjang_list")
             )
             ->where('beasiswa.tanggal_mulai', '<=', $today)
             ->where('beasiswa.tanggal_berakhir', '>=', $today)
@@ -125,7 +125,7 @@ class MaddingController extends Controller
                 'poster_beasiswa.link_poster', 'beasiswa.id', 'beasiswa.nama_beasiswa', 'beasiswa.deskripsi',
                 'beasiswa.tipe_beasiswa', 'beasiswa.jenis_beasiswa', 'beasiswa.kuota', 'beasiswa.sumber',
                 'beasiswa.tanggal_mulai', 'beasiswa.tanggal_berakhir',
-                DB::raw("COALESCE(CONCAT('{', GROUP_CONCAT(CONCAT('\"', jenjang_pendidikan.jenjang, '\"')), '}'), '{\"All Jenjang Pendidikan\"}') AS jenjang_list")
+                DB::raw("COALESCE(CONCAT('{', STRING_AGG(CONCAT('\"', jenjang_pendidikan.jenjang, '\"'), ','), '}'), '{\"All Jenjang Pendidikan\"}') AS jenjang_list")
             )
             ->where('beasiswa.tanggal_mulai', '>', $today)
             ->groupBy('beasiswa.id', 'poster_beasiswa.link_poster')

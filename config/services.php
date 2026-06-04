@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'sso' => [
+    'jwks_url' => env('SSO_JWKS_URL', 'https://sso.kampus.ac.id/.well-known/jwks.json'),
+],
+
 ];

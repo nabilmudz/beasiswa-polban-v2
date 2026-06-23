@@ -1,11 +1,16 @@
-# Menggunakan image resmi PHP 8.2 dengan Apache
-FROM php:8.2-apache
+# Menggunakan image resmi PHP 8.3 dengan Apache
+FROM php:8.3-apache
 
-# Menginstall ekstensi sistem yang dibutuhkan untuk PostgreSQL dan unzip (untuk Composer)
+# Menginstall ekstensi sistem yang dibutuhkan untuk PostgreSQL, ZIP, dan GD
 RUN apt-get update && apt-get install -y \
     libpq-dev \
     unzip \
-    && docker-php-ext-install pdo pdo_pgsql
+    libzip-dev \
+    libpng-dev \
+    libjpeg-dev \
+    libfreetype6-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install pdo pdo_pgsql zip gd
 
 # Mengaktifkan modul rewrite Apache (wajib untuk routing Laravel)
 RUN a2enmod rewrite

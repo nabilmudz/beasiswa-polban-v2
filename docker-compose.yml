@@ -1,31 +1,30 @@
 version: '3.8'
 
 services:
-  app:
+  app-beasiswa:
     build:
       context: .
       dockerfile: Dockerfile
     image: beasiswa-app
     container_name: beasiswa_app
     restart: unless-stopped
-    ports:
-      - "80:80"
     environment:
       - APP_ENV=production
       - APP_DEBUG=false
       - DB_CONNECTION=pgsql
-      - DB_HOST=db          # Menunjuk ke service 'db' di bawah
+      - DB_HOST=db-beasiswa          # Menunjuk ke service 'db-beasiswa'
       - DB_PORT=5432
       - DB_DATABASE=${DB_DATABASE}
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
       - SSO_JWKS_URL=${SSO_JWKS_URL}
     depends_on:
-      - db
+      - db-beasiswa
     networks:
       - beasiswa_network
+      - proxy-tier
 
-  db:
+  db-beasiswa:
     image: postgres:16-alpine
     container_name: beasiswa_db
     restart: unless-stopped
@@ -46,3 +45,5 @@ volumes:
 networks:
   beasiswa_network:
     driver: bridge
+  proxy-tier:
+    external: true

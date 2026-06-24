@@ -24,7 +24,7 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 Route::prefix('beasiswa')->group(function () {
     // Get all beasiswa (dengan pagination dan filter)
     Route::get('/', [BeasiswaController::class, 'apiIndex']);
-    
+
     // Get beasiswa by ID
     Route::get('/{id}', [BeasiswaController::class, 'apiShow']);
 });

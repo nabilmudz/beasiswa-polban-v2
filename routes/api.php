@@ -24,11 +24,10 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 Route::prefix('beasiswa')->group(function () {
     // Get all beasiswa (dengan pagination dan filter)
     Route::get('/', [BeasiswaController::class, 'apiIndex']);
-    
+
     // Get beasiswa by ID
     Route::get('/{id}', [BeasiswaController::class, 'apiShow']);
 });
-
 
 // Public Health Check Endpoint
 Route::get('/health', [DashboardApiController::class, 'health']);
@@ -36,10 +35,12 @@ Route::get('/health', [DashboardApiController::class, 'health']);
 // Submissions Endpoint - Proteksi JWT Token (Semua Role)
 Route::middleware('jwt.auth')->group(function () {
     Route::get('/submissions', [DashboardApiController::class, 'submissions']);
+    Route::get('/stats/program-status', [\App\Http\Controllers\StatsController::class, 'programStatus']);
+    Route::get('/stats/status-aktivitas', [\App\Http\Controllers\StatsController::class, 'statusAktivitas']);
 });
 
-// Pending Submissions Endpoint - Proteksi JWT Token Berdasarkan Role (Staff Only)
-Route::middleware('jwt.auth:STAFF,WD3,KLI')->group(function () {
+// Pending Submissions Endpoint - Proteksi JWT Token Berdasarkan Role
+Route::middleware('jwt.auth:STAFF,WD3,KLI,KAJUR')->group(function () {
     Route::get('/submissions/pending', [DashboardApiController::class, 'submissionsPending']);
 });
 

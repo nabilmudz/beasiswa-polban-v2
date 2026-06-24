@@ -33,8 +33,10 @@ Route::get('/health', [DashboardApiController::class, 'health']);
 
 Route::middleware('jwt.auth')->group(function () {
     Route::get('/submissions',   [DashboardApiController::class, 'submissions']);
+    Route::get('/stats/program-status', [\App\Http\Controllers\StatsController::class, 'programStatus']);
+    Route::get('/stats/status-aktivitas', [\App\Http\Controllers\StatsController::class, 'statusAktivitas']);
 });
 
-Route::middleware('jwt.auth:STAFF,WD3,KLI')->group(function () {
+Route::middleware('jwt.auth:STAFF,WD3,KLI,KAJUR')->group(function () {
     Route::get('/submissions/pending', [DashboardApiController::class, 'submissionsPending']);
 });

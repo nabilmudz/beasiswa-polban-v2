@@ -257,6 +257,94 @@ class DashboardApiController extends Controller
         ]);
     }
 
+    // GET /stats/monitoring 
+    public function monitoring(Request $request)
+    {
+        $programId = $request->query('programId');
+        $jurusan   = $request->query('jurusan');
+        $periode   = $request->query('periode');
+
+        $baseQuery = fn() => PengajuanBeasiswa::query()
+            ->join('mahasiswa', 'pengajuan_beasiswa.nim', '=', 'mahasiswa.nim')
+            ->join('prodi', 'mahasiswa.prodi_id', '=', 'prodi.id')
+            ->join('jurusan', 'prodi.jurusan_id', '=', 'jurusan.id')
+            ->when($periode, fn($q) => $q->whereYear('pengajuan_beasiswa.tanggal_pengajuan', $periode))
+            ->when($jurusan, fn($q) => $q->where('jurusan.nama_jurusan', $jurusan))
+            ->when($programId, fn($q) => $q->where('pengajuan_beasiswa.beasiswa_id', $programId));
+
+        $totalPengajuan = $baseQuery()->count();
+        $totalDiterima  = $baseQuery()->whereIn('pengajuan_beasiswa.status', [8])->count();
+
+        $perProgram = $baseQuery()
+            ->join('beasiswa', 'pengajuan_beasiswa.beasiswa_id', '=', 'beasiswa.id')
+            ->select(
+                'beasiswa.id as programId',
+                'beasiswa.nama_beasiswa as programName',
+                DB::raw('COUNT(*) as totalPengajuan'),
+                DB::raw('SUM(CASE WHEN pengajuan_beasiswa.status = 8 THEN 1 ELSE 0 END) as totalDiterima')
+            )
+            ->groupBy('beasiswa.id', 'beasiswa.nama_beasiswa')
+            ->get();
+
+        return response()->json([
+            'appSource'      => $this->appSource,
+            'periode'        => $periode,
+            'totalPengajuan' => $totalPengajuan,
+            'totalDiterima'  => $totalDiterima,
+            'perProgram'     => $perProgram,
+        ]);
+    }
+
+    // GET /stats/sebaran-jurusan 
+    public function sebaranJurusan(Request $request)
+    {
+        $periode   = $request->query('periode');
+        $programId = $request->query('programId');
+
+        $data = PengajuanBeasiswa::query()
+            ->join('mahasiswa', 'pengajuan_beasiswa.nim', '=', 'mahasiswa.nim')
+            ->join('prodi', 'mahasiswa.prodi_id', '=', 'prodi.id')
+            ->join('jurusan', 'prodi.jurusan_id', '=', 'jurusan.id')
+            ->select('jurusan.nama_jurusan as jurusan', DB::raw('COUNT(*) as "totalPenerima"'))
+            ->whereIn('pengajuan_beasiswa.status', [8])
+            ->when($periode, fn($q) => $q->whereYear('pengajuan_beasiswa.tanggal_pengajuan', $periode))
+            ->when($programId, fn($q) => $q->where('pengajuan_beasiswa.beasiswa_id', $programId))
+            ->groupBy('jurusan.nama_jurusan')
+            ->orderByDesc(DB::raw('"totalPenerima"'))
+            ->get();
+
+        return response()->json([
+            'appSource' => $this->appSource,
+            'data'      => $data,
+        ]);
+    }
+
+    // GET /stats/sebaran-tipe-sumber
+    public function sebaranTipeSumber(Request $request)
+    {
+        $periode = $request->query('periode');
+
+        $byTipe = PengajuanBeasiswa::query()
+            ->join('beasiswa', 'pengajuan_beasiswa.beasiswa_id', '=', 'beasiswa.id')
+            ->select('beasiswa.tipe_beasiswa as tipe', DB::raw('COUNT(pengajuan_beasiswa.id) as jumlah'))
+            ->when($periode, fn($q) => $q->whereYear('pengajuan_beasiswa.tanggal_pengajuan', $periode))
+            ->groupBy('beasiswa.tipe_beasiswa')
+            ->get();
+
+        $bySumberDana = PengajuanBeasiswa::query()
+            ->join('beasiswa', 'pengajuan_beasiswa.beasiswa_id', '=', 'beasiswa.id')
+            ->select('beasiswa.sumber as sumber', DB::raw('COUNT(pengajuan_beasiswa.id) as jumlah'))
+            ->when($periode, fn($q) => $q->whereYear('pengajuan_beasiswa.tanggal_pengajuan', $periode))
+            ->groupBy('beasiswa.sumber')
+            ->get();
+
+        return response()->json([
+            'appSource'    => $this->appSource,
+            'byTipe'       => $byTipe,
+            'bySumberDana' => $bySumberDana,
+        ]);
+    }
+
     // Helper: convert status id → label spec
     private function resolveStatusLabel(int $statusId, array $map): string
     {

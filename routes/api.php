@@ -48,3 +48,10 @@ Route::prefix('dashboard')->group(function () {
     Route::get('/timelines', [DashboardApiController::class, 'timelines']);
     Route::get('/opportunities', [DashboardApiController::class, 'opportunities']);
 });
+
+// Beasiswa Stats Endpoints
+Route::middleware('jwt.auth')->prefix('stats')->group(function () {
+    Route::get('/monitoring', [DashboardApiController::class, 'monitoring']);
+    Route::get('/sebaran-jurusan', [DashboardApiController::class, 'sebaranJurusan']);
+    Route::get('/sebaran-tipe-sumber', [DashboardApiController::class, 'sebaranTipeSumber']);
+});
